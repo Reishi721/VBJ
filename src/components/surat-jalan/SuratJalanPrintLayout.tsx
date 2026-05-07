@@ -228,42 +228,39 @@ const SuratJalanPrintLayout = forwardRef<HTMLDivElement, Props>(
         </div>
 
         {/* ── Signatures ───────────────────────────────────────── */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "flex-start",
-            fontSize: "12px",
-          }}
-        >
-          {/* Left: 3 signature columns */}
-          <div style={{ display: "flex", gap: "24px" }}>
-            {["Diterima oleh", "Dikirim oleh", "Dikeluarkan oleh"].map((label) => (
+        <div style={{ fontSize: "12px" }}>
+          {/* Date line - right aligned, above signatures */}
+          <div style={{ textAlign: "right", marginBottom: "8px" }}>
+            <span>Batam, {formattedDate}</span>
+          </div>
+
+          {/* All 4 signature columns in one row */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+            {["Diterima oleh", "Dikirim oleh", "Dikeluarkan oleh", "Mengetahui oleh,"].map((label) => (
               <div key={label} style={{ textAlign: "center", width: "120px" }}>
                 <p style={{ margin: "0 0 60px 0", fontWeight: "bold", fontSize: "11px" }}>{label}</p>
-                <p style={{ margin: 0, fontSize: "11px" }}>
-                  (..................................)
+                <p style={{ margin: 0, fontSize: "11px" }}>(..................................)
                 </p>
               </div>
             ))}
           </div>
-
-          {/* Right: date + Mengetahui */}
-          <div style={{ textAlign: "right" }}>
-            <p style={{ margin: "0 0 4px 0", fontSize: "12px" }}>
-              Batam, {formattedDate}
+        </div>
+        {/* Right: date + Mengetahui */}
+        <div style={{ textAlign: "right" }}>
+          <p style={{ margin: "0 0 4px 0", fontSize: "12px" }}>
+            Batam, {formattedDate}
+          </p>
+          <div style={{ textAlign: "center" }}>
+            <p style={{ margin: "0 0 60px 0", fontWeight: "bold", fontSize: "11px" }}>
+              Mengetahui oleh,
             </p>
-            <div style={{ textAlign: "center" }}>
-              <p style={{ margin: "0 0 60px 0", fontWeight: "bold", fontSize: "11px" }}>
-                Mengetahui oleh,
-              </p>
-              <p style={{ margin: 0, fontSize: "11px" }}>
-                (..................................)
-              </p>
-            </div>
+            <p style={{ margin: 0, fontSize: "11px" }}>
+              (..................................)
+            </p>
           </div>
         </div>
       </div>
+
     );
   }
 );
