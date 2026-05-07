@@ -1,11 +1,13 @@
 import { useState, useMemo, useCallback } from "react";
+import { useDraftGuard } from "../hooks/useDraftGuard";
 import { useInvoices, usePayments, useAddInvoice, useUpdateInvoice, useDeleteInvoice, useAddPayment } from "../hooks/useInvoices";
 import { useCustomers } from "../hooks/useCustomers";
 import type { Invoice, InvoiceStatus } from "../types";
 import { Plus, Pencil, Trash2, Eye, FileText, CreditCard, Clock, AlertTriangle } from "lucide-react";
 import {
   Button, SearchBar, TextInput, Select, SearchSelect, Textarea,
-  Modal, ConfirmDialog, SectionHeader, StatsRow, DataTable, DatePicker
+  Modal, ConfirmDialog, SectionHeader, StatsRow, DataTable, DatePicker,
+  DraftGuardDialog,
 } from "../components/ui";
 import type { ColumnDef } from "@tanstack/react-table";
 import { lazy, Suspense } from "react";
@@ -13,79 +15,11 @@ const InvoiceDetailModal = lazy(() => import("../components/invoice/InvoiceDetai
 const PaymentModal = lazy(() => import("../components/invoice/PaymentModal"));
 import { formatRupiah, InvoiceStatusBadge, PaymentProgress } from "../components/invoice/InvoiceHelpers";
 
-// ─── Formatted Number Input ───────────────────────────────────────────────────
-function FormattedNumberInput({
-  value, onChange, min = 0, prefix, className = "", decimal = false,
-}: {
-  value: number;
-  onChange: (v: number) => void;
-  min?: number;
-  prefix?: string;
-  className?: string;
-  decimal?: boolean;
-}) {
-  const [focused, setFocused] = useState(false);
-  const [raw, setRaw] = useState("");
-
-  // Format display when not focused
-  const formatDisplay = (num: number) => {
-    const pfx = prefix ? `${prefix} ` : "";
-    if (decimal && !Number.isInteger(num)) {
-      const [intPart, decPart] = num.toString().split(".");
-      return pfx + Number(intPart).toLocaleString("id-ID") + "," + (decPart ?? "");
-    }
-    return pfx + num.toLocaleString("id-ID");
-  };
-
-  const display = focused ? raw : formatDisplay(value);
-
-  const handleFocus = () => {
-    setRaw(value === 0 ? "" : value.toString().replace(".", ","));
-    setFocused(true);
-  };
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let cleaned = e.target.value;
-    if (decimal) {
-      cleaned = cleaned.replace(/[^0-9.,]/g, "");
-      const parts = cleaned.split(/[.,]/);
-      if (parts.length > 2) cleaned = parts[0] + "," + parts.slice(1).join("");
-      setRaw(cleaned);
-      const parsed = parseFloat(cleaned.replace(",", "."));
-      onChange(isNaN(parsed) ? 0 : parsed);
-    } else {
-      cleaned = cleaned.replace(/[^0-9]/g, "");
-      setRaw(cleaned);
-      onChange(cleaned === "" ? 0 : Number(cleaned));
-    }
-  };
-
-  const handleBlur = () => {
-    setFocused(false);
-    if (decimal) {
-      const parsed = parseFloat(raw.replace(",", "."));
-      if (!isNaN(parsed)) onChange(parsed);
-    }
-  };
-
-  return (
-    <input
-      type="text"
-      inputMode={decimal ? "decimal" : "numeric"}
-      value={display}
-      onFocus={handleFocus}
-      onChange={handleChange}
-      onBlur={handleBlur}
-      min={min}
-      className={`w-full px-3 py-2 rounded-lg border border-gray-200 text-[13px] outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/10 transition-all ${className}`}
-    />
-  );
-}
-
 
 
 // ─── Empty Form ───────────────────────────────────────────────────────────────
 const emptyForm = {
+  number: "",
   summaryDescription: "",
   date: new Date().toISOString().split("T")[0],
   dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
@@ -102,9 +36,9 @@ const emptyForm = {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function InvoicePage() {
-  const { data: invoices = [], isLoading: invLoading } = useInvoices();
-  const { data: payments = [] }                        = usePayments();
-  const { data: customers = [] }                       = useCustomers();
+  const { data: invoices = [] } = useInvoices();
+  const { data: payments = [] }  = usePayments();
+  const { data: customers = [] } = useCustomers();
   
   const { mutate: addInvoice }    = useAddInvoice();
   const { mutate: updateInvoice } = useUpdateInvoice();
@@ -150,12 +84,13 @@ export default function InvoicePage() {
 
   // ─ Handlers ─
   const openCreate = useCallback(() => {
-    setForm({ ...emptyForm });
+    setForm({ ...emptyForm, number: "" });
     setEditingId(null); setShowForm(true);
   }, []);
 
   const openEdit = useCallback((inv: Invoice) => {
     setForm({
+      number: inv.number,
       summaryDescription: inv.summaryDescription, date: inv.date, dueDate: inv.dueDate,
       poNumber: inv.poNumber || "", billingCycle: inv.billingCycle || "",
       customerId: inv.customerId, customerName: inv.customerName, customerAddress: inv.customerAddress || "",
@@ -165,9 +100,15 @@ export default function InvoicePage() {
       transportFee: inv.transportFee || 0, depositFee: inv.depositFee || 0,
       discount: inv.discount, tax: inv.tax,
       status: inv.status, notes: inv.notes || "",
-      items: [],
+      items: inv.items.map(i => ({ ...i })),
     });
     setEditingId(inv.id); setShowForm(true);
+  }, []);
+
+  const closeFormAndReset = useCallback(() => {
+    setShowForm(false);
+    setEditingId(null);
+    setForm({ ...emptyForm });
   }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -178,8 +119,35 @@ export default function InvoicePage() {
     const payload = { ...form, items: [], taxAmount: taxAmt, total, remainingAmount: total, paidAmount: 0 };
     if (editingId) updateInvoice({ id: editingId, input: payload });
     else addInvoice(payload);
-    setShowForm(false);
+    closeFormAndReset();
   };
+
+  const saveDraftCb = useCallback(async () => {
+    const taxAmt = Math.round(((form.subtotal - form.discount) * form.tax) / 100);
+    const total  = form.subtotal - form.discount + taxAmt + (form.transportFee || 0) + (form.depositFee || 0);
+    const draftPayload = { ...form, status: "draft" as InvoiceStatus, items: [], taxAmount: taxAmt, total: total || 0, remainingAmount: total || 0, paidAmount: 0 };
+    return new Promise<void>((resolve, reject) => {
+      if (editingId) {
+        updateInvoice({ id: editingId, input: draftPayload }, {
+          onSuccess: () => { closeFormAndReset(); resolve(); },
+          onError: reject,
+        });
+      } else {
+        addInvoice(draftPayload, {
+          onSuccess: () => { closeFormAndReset(); resolve(); },
+          onError: reject,
+        });
+      }
+    });
+  }, [form, editingId, addInvoice, updateInvoice, closeFormAndReset]);
+
+  const guard = useDraftGuard({
+    form: form as Record<string, unknown>,
+    emptyForm: emptyForm as Record<string, unknown>,
+    onDiscard: closeFormAndReset,
+    onSaveDraft: saveDraftCb,
+    isDirty: (f) => !!(f["customerName"] as string)?.trim() || !!(f["summaryDescription"] as string)?.trim(),
+  });
 
   // ─ Columns ─
   const columns = useMemo<ColumnDef<Invoice>[]>(() => [
@@ -270,9 +238,10 @@ export default function InvoicePage() {
   ], [openEdit]);
 
   // Form calculations for display
-  const formSubtotal = form.items.reduce((s, i) => s + (i.qty * i.unitPrice * (i.rentalDays || 1)), 0);
+  const formSubtotal  = form.items.reduce((s, i) => s + (i.qty * i.unitPrice * (i.rentalDays || 1)), 0);
   const formTaxAmount = Math.round(((formSubtotal - form.discount) * form.tax) / 100);
-  const formTotal = formSubtotal - form.discount + formTaxAmount + (form.transportFee || 0) + (form.depositFee || 0);
+  const _formTotal    = formSubtotal - form.discount + formTaxAmount + (form.transportFee || 0) + (form.depositFee || 0);
+  void _formTotal; // used in form display — suppress unused-local lint
 
   return (
     <div className="space-y-6">
@@ -316,7 +285,7 @@ export default function InvoicePage() {
       {payInv && <Suspense fallback={null}><PaymentModal invoice={payInv} onClose={() => setPayInv(null)} onSubmit={(p) => { addPayment(p); setPayInv(null); }} /></Suspense>}
 
       {/* ─── Form Modal ─── */}
-      <Modal open={showForm} onClose={() => setShowForm(false)} title={editingId ? "Edit Invoice" : "Buat Invoice"} size="xl">
+      <Modal open={showForm} onClose={guard.handleClose} title={editingId ? "Edit Invoice" : "Buat Invoice"} size="xl">
         <form id="inv-form" onSubmit={handleSubmit} className="space-y-6">
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -348,6 +317,7 @@ export default function InvoicePage() {
             {/* Dates & Status */}
             <div className="p-4 rounded-xl bg-gray-50/80 border border-gray-100 space-y-3">
               <p className="text-[12px] font-bold text-gray-500 uppercase tracking-wider">Detail Invoice & Cetak</p>
+              <TextInput label="No. Invoice" placeholder="Auto-generate" value={form.number} onChange={e => setForm(f => ({ ...f, number: e.target.value }))} hint="Kosongkan untuk otomatis" />
               <TextInput label="Deskripsi Ringkasan Tagihan" required placeholder="Contoh: Sewa Scaffolding Bulan April 2026"
                 value={form.summaryDescription} onChange={e => setForm(f => ({ ...f, summaryDescription: e.target.value }))} />
               <div className="grid grid-cols-2 gap-3">
@@ -432,7 +402,7 @@ export default function InvoicePage() {
         </form>
 
         <div className="flex justify-end gap-3 mt-6">
-          <Button variant="outline" onClick={() => setShowForm(false)}>Batal</Button>
+          <Button variant="outline" onClick={guard.handleClose}>Batal</Button>
           <Button type="submit" form="inv-form">{editingId ? "Simpan Perubahan" : "Buat Invoice"}</Button>
         </div>
       </Modal>
@@ -442,6 +412,17 @@ export default function InvoicePage() {
         title="Hapus Invoice?"
         description="Invoice beserta data pembayaran yang terkait akan dihapus permanen."
         confirmLabel="Hapus" variant="danger" />
+
+      {/* ── Draft Guard Dialog ──────────────────────────────────────── */}
+      <DraftGuardDialog
+        open={guard.showGuard}
+        entityName="Invoice"
+        filledName={guard.filledName}
+        onSaveDraft={guard.confirmSaveDraft}
+        onDiscard={guard.confirmDiscard}
+        onCancel={guard.cancelGuard}
+        savingDraft={guard.savingDraft}
+      />
     </div>
   );
 }

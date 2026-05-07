@@ -3,8 +3,7 @@ import type { Invoice, Payment } from "../../types";
 import { Modal, Button } from "../ui";
 import { formatRupiah, InvoiceStatusBadge, PaymentProgress } from "./InvoiceHelpers";
 import { FileText, MapPin, CreditCard, Building2, Printer, FileSpreadsheet } from "lucide-react";
-import { lazy, Suspense } from "react";
-const InvoicePrintLayout = lazy(() => import("./InvoicePrintLayout"));
+import InvoicePrintLayout from "./InvoicePrintLayout";
 
 // Helper: format durasi sewa (kelipatan 30 → tampil bulan)
 const isWholeMonths = (days: number) => days > 0 && days % 30 === 0;
@@ -21,7 +20,6 @@ interface Props { invoice: Invoice; payments: Payment[]; onClose: () => void; on
 
 export default function InvoiceDetailModal({ invoice: inv, payments, onClose, onAddPayment }: Props) {
   const invPayments = payments.filter(p => p.invoiceId === inv.id);
-  const [viewType, setViewType] = useState<"detail" | "summary">("detail");
 
   return (
     <>
@@ -58,68 +56,31 @@ export default function InvoiceDetailModal({ invoice: inv, payments, onClose, on
           <div>
             <div className="flex items-center justify-between mb-2">
               <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Rincian Tagihan</p>
-              <div className="flex items-center bg-gray-100 rounded-lg p-0.5">
-                <button onClick={() => setViewType("detail")} className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-[11px] font-semibold transition-all ${viewType === "detail" ? "bg-white shadow-sm text-blue-600" : "text-gray-500 hover:text-gray-700"}`}>
-                  <FileSpreadsheet className="w-3.5 h-3.5" /> Detail
-                </button>
-                <button onClick={() => setViewType("summary")} className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-[11px] font-semibold transition-all ${viewType === "summary" ? "bg-white shadow-sm text-violet-600" : "text-gray-500 hover:text-gray-700"}`}>
-                  <FileText className="w-3.5 h-3.5" /> Ringkasan
-                </button>
-              </div>
             </div>
             <div className="rounded-xl border border-gray-100 overflow-hidden">
               <table className="w-full text-sm">
                 <thead className="bg-gray-50/80">
                   <tr>
                     <th className="px-4 py-2.5 text-left text-[11px] font-semibold text-gray-400 uppercase">Deskripsi</th>
-                    {viewType === "detail" && (
-                      <>
-                        <th className="px-3 py-2.5 text-right text-[11px] font-semibold text-gray-400 uppercase">Durasi</th>
-                        <th className="px-3 py-2.5 text-right text-[11px] font-semibold text-gray-400 uppercase">Qty</th>
-                        <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-gray-400 uppercase">Sat.</th>
-                        <th className="px-3 py-2.5 text-right text-[11px] font-semibold text-gray-400 uppercase">Harga Satuan</th>
-                      </>
-                    )}
                     <th className="px-4 py-2.5 text-right text-[11px] font-semibold text-gray-400 uppercase">Subtotal</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {viewType === "detail" ? (
-                    inv.items.map((item, idx) => (
-                      <tr key={idx} className="hover:bg-gray-50/50">
-                        <td className="px-4 py-3">
-                          <p className="text-[13px] font-medium text-gray-900">{item.description}</p>
-                          {item.inventoryCode && <p className="text-[11px] font-mono text-blue-500">{item.inventoryCode}</p>}
-                        </td>
-                        <td className="px-3 py-3 text-right text-[12px] text-gray-500 whitespace-nowrap">
-                          {formatDuration(item.rentalDays)}
-                        </td>
-                        <td className="px-3 py-3 text-right text-[13px] font-semibold text-gray-900">{item.qty}</td>
-                        <td className="px-3 py-3 text-[12px] text-gray-500">{item.unit}</td>
-                        <td className="px-3 py-3 text-right text-[13px] text-gray-700 whitespace-nowrap">
-                          {formatRupiah(item.unitPrice)}
-                          <span className="text-[10px] text-gray-400 ml-0.5">{priceUnitLabel(item.rentalDays)}</span>
-                        </td>
-                        <td className="px-4 py-3 text-right text-[13px] font-semibold text-gray-900">{formatRupiah(item.subtotal)}</td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr className="hover:bg-gray-50/50">
-                      <td className="px-4 py-4">
-                        <p className="text-[13px] font-semibold text-gray-900">{inv.summaryDescription}</p>
-                      </td>
-                      <td className="px-4 py-4 text-right text-[13px] font-semibold text-gray-900">{formatRupiah(inv.subtotal)}</td>
-                    </tr>
-                  )}
+                  <tr className="hover:bg-gray-50/50">
+                    <td className="px-4 py-4">
+                      <p className="text-[13px] font-semibold text-gray-900">{inv.summaryDescription}</p>
+                    </td>
+                    <td className="px-4 py-4 text-right text-[13px] font-semibold text-gray-900">{formatRupiah(inv.subtotal)}</td>
+                  </tr>
                 </tbody>
                 <tfoot className="border-t border-gray-200 bg-gray-50/50">
-                  <tr><td colSpan={viewType === "detail" ? 5 : 1} className="px-4 py-1.5 text-right text-[12px] text-gray-500">Subtotal</td><td className="px-4 py-1.5 text-right text-[13px] font-semibold">{formatRupiah(inv.subtotal)}</td></tr>
-                  {(inv.transportFee || 0) > 0 && <tr><td colSpan={viewType === "detail" ? 5 : 1} className="px-4 py-1.5 text-right text-[12px] text-gray-500">Transport PP</td><td className="px-4 py-1.5 text-right text-[13px] font-semibold">{formatRupiah(inv.transportFee || 0)}</td></tr>}
-                  {(inv.depositFee || 0) > 0 && <tr><td colSpan={viewType === "detail" ? 5 : 1} className="px-4 py-1.5 text-right text-[12px] text-gray-500">Jaminan</td><td className="px-4 py-1.5 text-right text-[13px] font-semibold">{formatRupiah(inv.depositFee || 0)}</td></tr>}
-                  {inv.discount > 0 && <tr><td colSpan={viewType === "detail" ? 5 : 1} className="px-4 py-1.5 text-right text-[12px] text-emerald-600">Diskon</td><td className="px-4 py-1.5 text-right text-[13px] font-semibold text-emerald-600">- {formatRupiah(inv.discount)}</td></tr>}
-                  {inv.tax > 0 && <tr><td colSpan={viewType === "detail" ? 5 : 1} className="px-4 py-1.5 text-right text-[12px] text-gray-500">PPN {inv.tax}%</td><td className="px-4 py-1.5 text-right text-[13px] font-semibold">{formatRupiah(inv.taxAmount)}</td></tr>}
+                  <tr><td className="px-4 py-1.5 text-right text-[12px] text-gray-500">Subtotal</td><td className="px-4 py-1.5 text-right text-[13px] font-semibold">{formatRupiah(inv.subtotal)}</td></tr>
+                  {(inv.transportFee || 0) > 0 && <tr><td className="px-4 py-1.5 text-right text-[12px] text-gray-500">Transport PP</td><td className="px-4 py-1.5 text-right text-[13px] font-semibold">{formatRupiah(inv.transportFee || 0)}</td></tr>}
+                  {(inv.depositFee || 0) > 0 && <tr><td className="px-4 py-1.5 text-right text-[12px] text-gray-500">Jaminan</td><td className="px-4 py-1.5 text-right text-[13px] font-semibold">{formatRupiah(inv.depositFee || 0)}</td></tr>}
+                  {inv.discount > 0 && <tr><td className="px-4 py-1.5 text-right text-[12px] text-emerald-600">Diskon</td><td className="px-4 py-1.5 text-right text-[13px] font-semibold text-emerald-600">- {formatRupiah(inv.discount)}</td></tr>}
+                  {inv.tax > 0 && <tr><td className="px-4 py-1.5 text-right text-[12px] text-gray-500">PPN {inv.tax}%</td><td className="px-4 py-1.5 text-right text-[13px] font-semibold">{formatRupiah(inv.taxAmount)}</td></tr>}
                   <tr className="border-t border-gray-200">
-                    <td colSpan={viewType === "detail" ? 5 : 1} className="px-4 py-3 text-right text-[13px] font-bold text-gray-900">TOTAL</td>
+                    <td className="px-4 py-3 text-right text-[13px] font-bold text-gray-900">TOTAL</td>
                     <td className="px-4 py-3 text-right text-[15px] font-bold text-gray-900">{formatRupiah(inv.total)}</td>
                   </tr>
                 </tfoot>
@@ -170,7 +131,7 @@ export default function InvoiceDetailModal({ invoice: inv, payments, onClose, on
         </div>
 
         <div className="flex justify-between items-center mt-6">
-          <Button variant="ghost" size="sm" leftIcon={Printer} onClick={() => window.print()}>Cetak</Button>
+          <Button variant="ghost" size="sm" leftIcon={Printer} onClick={() => { requestAnimationFrame(() => requestAnimationFrame(() => window.print())); }}>Cetak</Button>
           <div className="flex gap-3">
             <Button variant="outline" onClick={onClose}>Tutup</Button>
             {inv.remainingAmount > 0 && (
@@ -179,7 +140,7 @@ export default function InvoiceDetailModal({ invoice: inv, payments, onClose, on
           </div>
         </div>
       </Modal>
-      <Suspense fallback={null}><InvoicePrintLayout invoice={inv} /></Suspense>
+      <InvoicePrintLayout invoice={inv} />
     </>
   );
 }

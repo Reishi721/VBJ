@@ -1,13 +1,15 @@
 import { useState, useMemo, useCallback } from "react";
-import { useInventoryItems, useInventoryCategories, useAddCategory, useUpdateCategory, useDeleteCategory, useAddItem, useUpdateItem, useDeleteItem } from "../hooks/useInventory";
-import type { InventoryCategory, InventoryItem } from "../types";
+import { useInventoryItems, useInventoryCategories, useAddCategory, useUpdateCategory, useDeleteCategory, useAddItem, useUpdateItem, useDeleteItem, useAdjustStock } from "../hooks/useInventory";
+import { useStockLogs } from "../hooks/useStockLogs";
+import type { InventoryCategory, InventoryItem, StockLog } from "../types";
 import {
   Plus, Pencil, Trash2, Package, Tag, AlertTriangle,
-  Wrench, CheckCircle2, XCircle, Layers, WarehouseIcon, Search
+  Wrench, CheckCircle2, XCircle, Layers, ArrowUpCircle,
+  ArrowDownCircle, RotateCcw, History, SlidersHorizontal,
 } from "lucide-react";
 import {
   Button, SearchBar, TextInput, Textarea, Select, Badge,
-  Modal, ConfirmDialog, SectionHeader, StatsRow, DataTable, Card
+  Modal, ConfirmDialog, SectionHeader, StatsRow, DataTable,
 } from "../components/ui";
 import type { ColumnDef } from "@tanstack/react-table";
 
@@ -63,6 +65,26 @@ function ConditionBadge({ condition }: { condition: InventoryItem["condition"] }
   );
 }
 
+// ─── Change Type Badge ────────────────────────────────────────────────────────
+function ChangeTypeBadge({ type }: { type: string }) {
+  const map: Record<string, { label: string; variant: "gray"|"blue"|"emerald"|"amber"|"red"|"purple"; icon: any }> = {
+    manual_in: { label: "Manual Masuk", variant: "emerald", icon: ArrowUpCircle },
+    manual_out: { label: "Manual Keluar", variant: "red", icon: ArrowDownCircle },
+    sj_in: { label: "SJ Kembali", variant: "blue", icon: ArrowUpCircle },
+    sj_out: { label: "SJ Keluar", variant: "amber", icon: ArrowDownCircle },
+    po_receive: { label: "PO Terima", variant: "purple", icon: ArrowUpCircle },
+    adjustment: { label: "Penyesuaian", variant: "gray", icon: SlidersHorizontal },
+  };
+  const m = map[type] || { label: type, variant: "gray", icon: RotateCcw };
+  const Icon = m.icon;
+  return (
+    <Badge variant={m.variant} className="flex items-center gap-1.5 px-2 py-1">
+      <Icon className="w-3.5 h-3.5" />
+      {m.label}
+    </Badge>
+  );
+}
+
 // ─── Stock Badge ──────────────────────────────────────────────────────────────
 function StockBadge({ stock, minStock }: { stock: number; minStock: number }) {
   if (stock === 0) return <span className="inline-flex items-center gap-1 text-[12px] font-bold text-red-500"><AlertTriangle className="w-3.5 h-3.5" /> Habis</span>;
@@ -71,7 +93,7 @@ function StockBadge({ stock, minStock }: { stock: number; minStock: number }) {
 }
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
-type TabType = "items" | "categories";
+type TabType = "items" | "categories" | "logs";
 
 export default function InventoryPage() {
   const { data: categories = [] } = useInventoryCategories();
@@ -84,8 +106,26 @@ export default function InventoryPage() {
   const { mutate: addItem } = useAddItem();
   const { mutate: updateItem } = useUpdateItem();
   const { mutate: deleteItem } = useDeleteItem();
+  const { mutate: adjustStock } = useAdjustStock();
+  const { data: stockLogs = [] } = useStockLogs();
+
   const [tab, setTab] = useState<TabType>("items");
   const [search, setSearch] = useState("");
+  const [logFilter, setLogFilter] = useState("all");
+
+  // ─ Adjust Stock state ─
+  const [showAdjust, setShowAdjust] = useState(false);
+  const [adjustForm, setAdjustForm] = useState({ itemId: "", qty: 0, type: "in" as "in" | "out" | "adjustment", reason: "" });
+
+  const openAdjust = useCallback((item?: InventoryItem) => {
+    setAdjustForm({ itemId: item?.id || "", qty: 0, type: "in", reason: "" });
+    setShowAdjust(true);
+  }, []);
+  const handleAdjustSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    adjustStock(adjustForm);
+    setShowAdjust(false);
+  };
 
   // ─ Category CRUD state ─
   const [showCatForm, setShowCatForm] = useState(false);
@@ -96,7 +136,11 @@ export default function InventoryPage() {
   // ─ Item CRUD state ─
   const [showItemForm, setShowItemForm] = useState(false);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
-  const [itemForm, setItemForm] = useState(emptyItem);
+  const [itemForm, setItemForm] = useState<{
+    categoryId: string; name: string; code: string; unit: string;
+    stock: number; minStock: number; condition: InventoryItem["condition"];
+    location: string; description: string;
+  }>(emptyItem);
   const [delItem, setDelItem] = useState<string | null>(null);
 
   // ─ Filtered data ─
@@ -215,6 +259,9 @@ export default function InventoryPage() {
         const i = row.original;
         return (
           <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <Button variant="ghost" size="sm" className="px-2" onClick={() => openAdjust(i)} title="Sesuaikan Stok">
+              <SlidersHorizontal className="w-4 h-4 text-gray-400 hover:text-emerald-600" />
+            </Button>
             <Button variant="ghost" size="sm" className="px-2" onClick={() => openEditItem(i)}>
               <Pencil className="w-4 h-4 text-gray-400 hover:text-blue-600" />
             </Button>
@@ -288,6 +335,81 @@ export default function InventoryPage() {
     },
   ], [items, openEditCat]);
 
+  // ─ Table Columns: Stock Logs ─
+  const logColumns = useMemo<ColumnDef<StockLog>[]>(() => [
+    {
+      header: "Tanggal",
+      accessorKey: "createdAt",
+      cell: ({ row }) => {
+        const d = new Date(row.original.createdAt);
+        return (
+          <div>
+            <p className="text-[13px] font-semibold text-gray-900">{d.toLocaleDateString("id-ID")}</p>
+            <p className="text-[11px] text-gray-400">{d.toLocaleTimeString("id-ID")}</p>
+          </div>
+        );
+      },
+    },
+    {
+      header: "Barang",
+      accessorKey: "inventoryName",
+      cell: ({ row }) => (
+        <div>
+          <p className="text-[13px] font-semibold text-gray-900">{row.original.inventoryName}</p>
+          <p className="font-mono text-[11px] text-blue-600">{row.original.inventoryCode}</p>
+        </div>
+      ),
+    },
+    {
+      header: "Jenis",
+      accessorKey: "changeType",
+      cell: ({ row }) => <ChangeTypeBadge type={row.original.changeType} />,
+    },
+    {
+      header: "Perubahan",
+      accessorKey: "qtyChange",
+      cell: ({ row }) => {
+        const c = row.original.qtyChange;
+        const color = c > 0 ? "text-emerald-600" : c < 0 ? "text-red-600" : "text-gray-500";
+        return (
+          <span className={`text-[13px] font-bold ${color}`}>
+            {c > 0 ? "+" : ""}{c}
+          </span>
+        );
+      },
+    },
+    {
+      header: "Sisa Stok",
+      accessorKey: "qtyAfter",
+      cell: ({ row }) => <span className="text-[13px] font-semibold text-gray-900">{row.original.qtyAfter}</span>,
+    },
+    {
+      header: "Keterangan",
+      accessorKey: "notes",
+      cell: ({ row }) => (
+        <span className="text-[12px] text-gray-500 line-clamp-2" title={row.original.notes || ""}>
+          {row.original.notes || "—"}
+        </span>
+      ),
+    },
+  ], []);
+
+  // ─ Filtered Logs ─
+  const filteredLogs = useMemo(() => {
+    let filtered = stockLogs;
+    if (logFilter !== "all") {
+      filtered = filtered.filter(l => l.changeType === logFilter);
+    }
+    if (search) {
+      filtered = filtered.filter(l =>
+        l.inventoryName.toLowerCase().includes(search.toLowerCase()) ||
+        l.inventoryCode.toLowerCase().includes(search.toLowerCase()) ||
+        (l.notes && l.notes.toLowerCase().includes(search.toLowerCase()))
+      );
+    }
+    return filtered;
+  }, [stockLogs, logFilter, search]);
+
   return (
     <div className="space-y-6">
       <SectionHeader
@@ -333,12 +455,41 @@ export default function InventoryPage() {
             <Tag className="w-4 h-4" />
             Kategori
           </button>
+          <button
+            onClick={() => setTab("logs")}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[13px] font-semibold transition-all duration-200 ${
+              tab === "logs" ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            <History className="w-4 h-4" />
+            Riwayat Stok
+          </button>
         </div>
-        <div className="w-full sm:max-w-xs">
+        <div className="flex gap-2 w-full sm:max-w-md">
+          {tab === "logs" && (
+            <Select
+              value={logFilter}
+              onChange={(val: string) => setLogFilter(val)}
+              options={[
+                { value: "all", label: "Semua Riwayat" },
+                { value: "manual_in", label: "Manual Masuk" },
+                { value: "manual_out", label: "Manual Keluar" },
+                { value: "adjustment", label: "Penyesuaian" },
+                { value: "sj_out", label: "SJ Keluar" },
+                { value: "sj_in", label: "SJ Kembali" },
+                { value: "po_receive", label: "PO Terima" },
+              ]}
+              className="w-40 shrink-0"
+            />
+          )}
           <SearchBar
             value={search}
             onChange={setSearch}
-            placeholder={tab === "items" ? "Cari nama, kode, kategori..." : "Cari kategori..."}
+            placeholder={
+              tab === "items" ? "Cari nama, kode, kategori..." : 
+              tab === "logs" ? "Cari barang, catatan..." : 
+              "Cari kategori..."
+            }
           />
         </div>
       </div>
@@ -350,6 +501,67 @@ export default function InventoryPage() {
       {tab === "categories" && (
         <DataTable columns={catColumns} data={filteredCategories} />
       )}
+      {tab === "logs" && (
+        <DataTable columns={logColumns} data={filteredLogs} />
+      )}
+
+      {/* ─── Adjust Stock Modal ───────────────────────────────────────── */}
+      <Modal
+        open={showAdjust}
+        onClose={() => setShowAdjust(false)}
+        title="Sesuaikan Stok"
+        size="sm"
+      >
+        <form id="adjust-form" onSubmit={handleAdjustSubmit} className="space-y-4">
+          {adjustForm.itemId && (() => {
+            const item = items.find(i => i.id === adjustForm.itemId);
+            return item ? (
+              <div className="p-3 bg-gray-50 rounded-xl border border-gray-100 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-white border border-gray-100 flex items-center justify-center shrink-0">
+                  <Package className="w-5 h-5 text-gray-400" />
+                </div>
+                <div>
+                  <p className="text-[13px] font-semibold text-gray-900">{item.name}</p>
+                  <p className="text-[11px] text-gray-500">Stok saat ini: <span className="font-bold text-gray-900">{item.stock}</span> {item.unit}</p>
+                </div>
+              </div>
+            ) : null;
+          })()}
+
+          <Select
+            label="Jenis Penyesuaian"
+            required
+            value={adjustForm.type}
+            onChange={(val: any) => setAdjustForm({ ...adjustForm, type: val })}
+            options={[
+              { value: "in", label: "Barang Masuk (Manual)" },
+              { value: "out", label: "Barang Keluar (Manual)" },
+              { value: "adjustment", label: "Penyesuaian (Koreksi)" },
+            ]}
+          />
+          <TextInput
+            label="Jumlah"
+            type="number"
+            required
+            min={1}
+            value={String(adjustForm.qty)}
+            onChange={(e) => setAdjustForm({ ...adjustForm, qty: Number(e.target.value) })}
+            hint={adjustForm.type === "out" ? "Jumlah akan dikurangi dari stok saat ini" : "Jumlah akan ditambahkan ke stok saat ini"}
+          />
+          <Textarea
+            label="Keterangan / Alasan"
+            rows={2}
+            required
+            placeholder="Contoh: Barang rusak dibuang, selisih opname, dll."
+            value={adjustForm.reason}
+            onChange={(e) => setAdjustForm({ ...adjustForm, reason: e.target.value })}
+          />
+        </form>
+        <div className="flex justify-end gap-3 mt-6">
+          <Button variant="outline" onClick={() => setShowAdjust(false)}>Batal</Button>
+          <Button type="submit" form="adjust-form">Simpan Penyesuaian</Button>
+        </div>
+      </Modal>
 
       {/* ─── Item Form Modal ───────────────────────────────────────────── */}
       <Modal

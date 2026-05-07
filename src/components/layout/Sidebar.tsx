@@ -2,7 +2,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, Users, Truck, Package, ClipboardList,
   DollarSign, BarChart3, Settings, ChevronRight, Blocks,
-  UserCheck, FileText, LogOut,
+  UserCheck, FileText, LogOut, ShoppingCart, Wallet
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useAuth, type UserRole } from "../../contexts/AuthContext";
@@ -19,11 +19,13 @@ const navItems = [
   { name: "Dashboard",       href: "/",            icon: LayoutDashboard, group: "main" },
   { name: "Pelanggan",       href: "/customers",   icon: Users,           group: "main" },
   { name: "Marketing",       href: "/marketing",   icon: UserCheck,       group: "main" },
-  { name: "Surat Jalan",     href: "/surat-jalan", icon: Truck,           group: "operations" },
-  { name: "Inventaris",      href: "/inventory",   icon: Package,         group: "operations" },
-  { name: "Rekapan Penyewa", href: "/rekapan",     icon: ClipboardList,   group: "operations" },
+  { name: "Surat Jalan",     href: "/surat-jalan",      icon: Truck,          group: "operations" },
+  { name: "Inventaris",      href: "/inventory",        icon: Package,        group: "operations" },
+  { name: "Purchase Order",  href: "/purchase-orders",  icon: ShoppingCart,   group: "operations" },
+  { name: "Rekapan Penyewa", href: "/rekapan",          icon: ClipboardList,  group: "operations" },
   { name: "Invoice",         href: "/invoice",     icon: FileText,        group: "finance" },
   { name: "Keuangan",        href: "/finance",     icon: DollarSign,      group: "finance" },
+  { name: "Piutang",         href: "/piutang",     icon: Wallet,          group: "finance" },
   { name: "Laporan",         href: "/reports",     icon: BarChart3,       group: "finance" },
   { name: "Pengaturan",      href: "/settings",    icon: Settings,        group: "system" },
 ];

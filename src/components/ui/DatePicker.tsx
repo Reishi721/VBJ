@@ -1,11 +1,23 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { DayPicker } from "react-day-picker";
 import "react-day-picker/style.css";
 import { id } from "date-fns/locale";
 import { format, parse, isValid } from "date-fns";
-import { CalendarDays, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, ChevronDown, X } from "lucide-react";
 import { cn } from "../../lib/utils";
 
+// ─── Month & Year names ─────────────────────────────────────────────────────
+const MONTHS = [
+  "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+  "Juli", "Agustus", "September", "Oktober", "November", "Desember",
+];
+
+const currentYear = new Date().getFullYear();
+const YEAR_RANGE_START = currentYear - 10;
+const YEAR_RANGE_END   = currentYear + 10;
+const YEARS = Array.from({ length: YEAR_RANGE_END - YEAR_RANGE_START + 1 }, (_, i) => YEAR_RANGE_START + i);
+
+// ─── Props ──────────────────────────────────────────────────────────────────
 interface DatePickerProps {
   value?: string; // ISO date string yyyy-MM-dd
   onChange: (value: string) => void;
@@ -32,6 +44,7 @@ export function DatePicker({
   className,
 }: DatePickerProps) {
   const [open, setOpen] = useState(false);
+  const [calMonth, setCalMonth] = useState<Date>(new Date());
   const ref = useRef<HTMLDivElement>(null);
 
   const selected = value ? parse(value, "yyyy-MM-dd", new Date()) : undefined;
@@ -39,14 +52,22 @@ export function DatePicker({
     ? format(selected, "dd MMMM yyyy", { locale: id })
     : "";
 
+  // Sync calendar month to selected date when popup opens
+  useEffect(() => {
+    if (open && selected && isValid(selected)) {
+      setCalMonth(selected);
+    }
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Close on outside click
   useEffect(() => {
+    if (!open) return;
     const handler = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-  }, []);
+  }, [open]);
 
   const handleSelect = (day: Date | undefined) => {
     if (day) {
@@ -59,6 +80,14 @@ export function DatePicker({
     e.stopPropagation();
     onChange("");
   };
+
+  const handleMonthChange = useCallback((month: number) => {
+    setCalMonth(prev => new Date(prev.getFullYear(), month, 1));
+  }, []);
+
+  const handleYearChange = useCallback((year: number) => {
+    setCalMonth(prev => new Date(year, prev.getMonth(), 1));
+  }, []);
 
   return (
     <div className={cn("relative", className)} ref={ref}>
@@ -104,13 +133,74 @@ export function DatePicker({
           "animate-in fade-in-0 zoom-in-95 duration-150 origin-top",
           "p-4"
         )}
-          style={{ minWidth: 280 }}
+          style={{ minWidth: 300 }}
         >
+          {/* ── Month / Year Selectors ─────────────────────────── */}
+          <div className="flex items-center gap-2 mb-3">
+            {/* Prev Month */}
+            <button
+              type="button"
+              onClick={() => setCalMonth(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))}
+              className="w-7 h-7 rounded-lg hover:bg-gray-100 flex items-center justify-center text-gray-500 hover:text-gray-900 transition-colors shrink-0"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+
+            {/* Month Dropdown */}
+            <div className="relative flex-1">
+              <select
+                value={calMonth.getMonth()}
+                onChange={e => handleMonthChange(Number(e.target.value))}
+                className={cn(
+                  "w-full appearance-none bg-gray-50 hover:bg-gray-100 border border-gray-200",
+                  "rounded-lg px-3 py-1.5 pr-7 text-[13px] font-semibold text-gray-800",
+                  "cursor-pointer transition-colors outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/10"
+                )}
+              >
+                {MONTHS.map((m, i) => (
+                  <option key={i} value={i}>{m}</option>
+                ))}
+              </select>
+              <ChevronDown className="w-3.5 h-3.5 text-gray-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+            </div>
+
+            {/* Year Dropdown */}
+            <div className="relative w-[85px]">
+              <select
+                value={calMonth.getFullYear()}
+                onChange={e => handleYearChange(Number(e.target.value))}
+                className={cn(
+                  "w-full appearance-none bg-gray-50 hover:bg-gray-100 border border-gray-200",
+                  "rounded-lg px-3 py-1.5 pr-7 text-[13px] font-semibold text-gray-800",
+                  "cursor-pointer transition-colors outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/10"
+                )}
+              >
+                {YEARS.map(y => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+              <ChevronDown className="w-3.5 h-3.5 text-gray-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+            </div>
+
+            {/* Next Month */}
+            <button
+              type="button"
+              onClick={() => setCalMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))}
+              className="w-7 h-7 rounded-lg hover:bg-gray-100 flex items-center justify-center text-gray-500 hover:text-gray-900 transition-colors shrink-0"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* ── Day Grid ───────────────────────────────────────── */}
           <DayPicker
             mode="single"
+            month={calMonth}
+            onMonthChange={setCalMonth}
             selected={selected}
             onSelect={handleSelect}
             locale={id}
+            hideNavigation
             disabled={[
               ...(minDate ? [{ before: minDate }] : []),
               ...(maxDate ? [{ after: maxDate }] : []),
@@ -119,11 +209,8 @@ export function DatePicker({
               root: "w-full",
               months: "w-full",
               month: "w-full",
-              month_caption: "flex items-center justify-between mb-3 px-1",
-              caption_label: "text-sm font-bold text-gray-900",
-              nav: "flex items-center gap-1",
-              button_previous: "w-7 h-7 rounded-lg hover:bg-gray-100 flex items-center justify-center text-gray-500 hover:text-gray-900 transition-colors",
-              button_next: "w-7 h-7 rounded-lg hover:bg-gray-100 flex items-center justify-center text-gray-500 hover:text-gray-900 transition-colors",
+              month_caption: "hidden",
+              nav: "hidden",
               month_grid: "w-full border-collapse",
               weekdays: "flex mb-1",
               weekday: "flex-1 text-center text-[11px] font-semibold text-gray-400 uppercase",
@@ -140,13 +227,21 @@ export function DatePicker({
               disabled: "text-gray-200 cursor-not-allowed hover:bg-transparent",
               hidden: "invisible",
             }}
-            components={{
-              Chevron: ({ orientation }) =>
-                orientation === "left"
-                  ? <ChevronLeft className="w-4 h-4" />
-                  : <ChevronRight className="w-4 h-4" />,
-            }}
           />
+
+          {/* ── Today shortcut ─────────────────────────────────── */}
+          <button
+            type="button"
+            onClick={() => {
+              const today = new Date();
+              setCalMonth(today);
+              onChange(format(today, "yyyy-MM-dd"));
+              setOpen(false);
+            }}
+            className="w-full mt-2 py-1.5 rounded-lg text-[12px] font-semibold text-blue-600 hover:bg-blue-50 transition-colors"
+          >
+            Hari Ini
+          </button>
         </div>
       )}
     </div>

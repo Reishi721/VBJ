@@ -65,7 +65,7 @@ export function useCustomers() {
   // Realtime subscription
   useEffect(() => {
     const channel = supabase
-      .channel("realtime:customers")
+      .channel(`realtime:customers_${Math.random().toString(36).slice(2)}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "customers" },
         () => qc.invalidateQueries({ queryKey: customerKeys.all }))
       .on("postgres_changes", { event: "*", schema: "public", table: "customer_projects" },
@@ -83,6 +83,9 @@ type CustomerInput = Omit<Customer, "id" | "createdAt" | "projects" | "marketing
   projects?: Omit<CustomerProject, "id" | "customerId" | "createdAt">[];
 };
 
+/** Konversi string kosong ke null untuk kolom nullable di Supabase */
+const orNull = (v?: string) => (v && v.trim() !== "" ? v.trim() : null);
+
 export function useAddCustomer() {
   const qc = useQueryClient();
   return useMutation({
@@ -92,11 +95,11 @@ export function useAddCustomer() {
         .from("customers")
         .insert({
           name:         rest.name,
-          company:      rest.company,
+          company:      orNull(rest.company),
           phone:        rest.phone,
-          email:        rest.email,
+          email:        orNull(rest.email),
           address:      rest.address,
-          marketing_id: rest.marketingId,
+          marketing_id: orNull(rest.marketingId),
           status:       rest.status,
         })
         .select()
@@ -134,11 +137,11 @@ export function useUpdateCustomer() {
         .from("customers")
         .update({
           name:         input.name,
-          company:      input.company,
+          company:      orNull(input.company),
           phone:        input.phone,
-          email:        input.email,
+          email:        orNull(input.email),
           address:      input.address,
-          marketing_id: input.marketingId,
+          marketing_id: orNull(input.marketingId),
           status:       input.status,
         })
         .eq("id", id);
@@ -169,11 +172,11 @@ export function useAddProject() {
         name:            p.name,
         location:        p.location,
         status:          p.status,
-        start_date:      p.startDate,
-        end_date:        p.endDate,
-        description:     p.description,
-        recipient_name:  p.recipientName,
-        recipient_phone: p.recipientPhone,
+        start_date:      orNull(p.startDate),
+        end_date:        orNull(p.endDate),
+        description:     orNull(p.description),
+        recipient_name:  orNull(p.recipientName),
+        recipient_phone: orNull(p.recipientPhone),
       });
       if (error) throw error;
     },
@@ -189,11 +192,11 @@ export function useUpdateProject() {
         name:            input.name,
         location:        input.location,
         status:          input.status,
-        start_date:      input.startDate,
-        end_date:        input.endDate,
-        description:     input.description,
-        recipient_name:  input.recipientName,
-        recipient_phone: input.recipientPhone,
+        start_date:      orNull(input.startDate),
+        end_date:        orNull(input.endDate),
+        description:     orNull(input.description),
+        recipient_name:  orNull(input.recipientName),
+        recipient_phone: orNull(input.recipientPhone),
       }).eq("id", id);
       if (error) throw error;
     },

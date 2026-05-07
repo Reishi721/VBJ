@@ -32,7 +32,11 @@ export default function CustomerPage() {
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState(emptyForm);
+  const [form, setForm] = useState<{
+    name: string; company: string; phone: string;
+    email: string; address: string; marketingId: string;
+    status: Customer["status"];
+  }>(emptyForm);
   const [delConfirm, setDelConfirm] = useState<string | null>(null);
 
   // ✅ FIX 1: Simpan hanya ID, bukan seluruh object Customer
@@ -72,9 +76,8 @@ export default function CustomerPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const mkt = marketings.find(m => m.id === form.marketingId);
-    if (editingId) updateCustomer({ id: editingId, input: { ...form, marketingName: mkt?.name } });
-    else addCustomer({ ...form, marketingName: mkt?.name });
+    if (editingId) updateCustomer({ id: editingId, input: form });
+    else addCustomer(form);
     setShowForm(false);
   };
 

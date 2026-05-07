@@ -7,3 +7,4 @@ export * from "./Badge";
 export * from "./Modal";
 export * from "./Card";
 export * from "./DataTable";
+export * from "./DraftGuardDialog";

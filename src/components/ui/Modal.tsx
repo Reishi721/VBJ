@@ -38,7 +38,7 @@ export function Modal({ open, onClose, title, description, size = "md", children
       <div className="min-h-full flex items-center justify-center p-4 sm:p-6">
         {/* Overlay */}
         <div
-          className="fixed inset-0 bg-black/40 backdrop-blur-sm animate-in fade-in-0 duration-200"
+          className="fixed inset-0 bg-black/50 animate-in fade-in-0 duration-150"
           onClick={closeOnOverlay ? onClose : undefined}
         />
         {/* Dialog */}
@@ -110,7 +110,7 @@ export function ConfirmDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-in fade-in-0 duration-200" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/50 animate-in fade-in-0 duration-150" onClick={onClose} />
       <div className="relative w-full max-w-sm bg-white rounded-2xl shadow-2xl animate-in fade-in-0 zoom-in-95 duration-200 p-6 text-center">
         <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4 text-2xl", vs.bg)}>
           {vs.icon}

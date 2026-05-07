@@ -75,7 +75,7 @@ export default function SuratJalanPrintModal({ sj, onClose }: Props) {
   return createPortal(
     <div className="fixed inset-0 z-[60] flex print:hidden">
       {/* Overlay */}
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
 
       {/* Content */}
       <div className="relative flex w-full h-full">

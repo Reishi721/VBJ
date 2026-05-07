@@ -5,7 +5,7 @@ import type { CompanySettings, InvoiceSettings, BankAccount } from "../stores/us
 
 export const settingsKeys = {
   company: ["company_settings"] as const,
-  banks:   ["bank_accounts"] as const,
+  banks: ["bank_accounts"] as const,
 };
 
 // ─── Bank Accounts ───
@@ -13,10 +13,10 @@ async function fetchBanks(): Promise<BankAccount[]> {
   const { data, error } = await supabase.from("bank_accounts").select("*").order("created_at", { ascending: true });
   if (error) throw error;
   return (data ?? []).map((b: any) => ({
-    id:            b.id,
-    bankName:      b.bank_name,
+    id: b.id,
+    bankName: b.bank_name,
     accountNumber: b.account_number,
-    accountName:   b.account_name,
+    accountName: b.account_name,
   }));
 }
 
@@ -26,7 +26,7 @@ export function useBanks() {
 
   useEffect(() => {
     const ch = supabase
-      .channel("realtime:bank_accounts")
+      .channel(`bank_accounts_${Math.random().toString(36).slice(2)}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "bank_accounts" },
         () => qc.invalidateQueries({ queryKey: settingsKeys.banks }))
       .subscribe();
@@ -41,9 +41,9 @@ export function useAddBank() {
   return useMutation({
     mutationFn: async (input: Omit<BankAccount, "id">) => {
       const { error } = await supabase.from("bank_accounts").insert({
-        bank_name:      input.bankName,
+        bank_name: input.bankName,
         account_number: input.accountNumber,
-        account_name:   input.accountName,
+        account_name: input.accountName,
       });
       if (error) throw error;
     },
@@ -56,9 +56,9 @@ export function useUpdateBank() {
   return useMutation({
     mutationFn: async ({ id, input }: { id: string; input: Partial<BankAccount> }) => {
       const { error } = await supabase.from("bank_accounts").update({
-        bank_name:      input.bankName,
+        bank_name: input.bankName,
         account_number: input.accountNumber,
-        account_name:   input.accountName,
+        account_name: input.accountName,
       }).eq("id", id);
       if (error) throw error;
     },
@@ -93,17 +93,17 @@ async function fetchCompanySettings(): Promise<CompleteSettings | null> {
   return {
     id: data.id,
     company: {
-      name:         data.name,
-      tagline:      data.tagline,
+      name: data.name,
+      tagline: data.tagline,
       addressLine1: data.address_line1,
       addressLine2: data.address_line2,
-      phone:        data.phone,
-      fax:          data.fax,
-      logoUrl:      data.logo_url,
+      phone: data.phone,
+      fax: data.fax,
+      logoUrl: data.logo_url,
     },
     invoice: {
-      remarks:      data.invoice_remarks ?? "",
-      managerName:  data.manager_name ?? "",
+      remarks: data.invoice_remarks ?? "",
+      managerName: data.manager_name ?? "",
       managerTitle: data.manager_title ?? "",
     }
   };
@@ -115,7 +115,7 @@ export function useCompanySettings() {
 
   useEffect(() => {
     const ch = supabase
-      .channel("realtime:company_settings")
+      .channel(`company_settings_${Math.random().toString(36).slice(2)}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "company_settings" },
         () => qc.invalidateQueries({ queryKey: settingsKeys.company }))
       .subscribe();

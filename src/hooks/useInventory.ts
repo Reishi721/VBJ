@@ -4,6 +4,7 @@
  */
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
+import { toast } from "sonner";
 import { supabase } from "../lib/supabase";
 import type { InventoryItem, InventoryCategory } from "../types";
 
@@ -57,7 +58,7 @@ export function useInventoryItems() {
 
   useEffect(() => {
     const ch = supabase
-      .channel("realtime:inventory")
+      .channel(`realtime:inventory_${Math.random().toString(36).slice(2)}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "inventory_items" },
         () => qc.invalidateQueries({ queryKey: inventoryKeys.items }))
       .subscribe();
@@ -73,7 +74,7 @@ export function useInventoryCategories() {
 
   useEffect(() => {
     const ch = supabase
-      .channel("realtime:inv_categories")
+      .channel(`realtime:inv_categories_${Math.random().toString(36).slice(2)}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "inventory_categories" },
         () => qc.invalidateQueries({ queryKey: inventoryKeys.categories }))
       .subscribe();
@@ -86,6 +87,7 @@ export function useInventoryCategories() {
 // ─── Mutations: Items ─────────────────────────────────────────────────────────
 type ItemInput = Omit<InventoryItem, "id" | "createdAt" | "categoryName">;
 
+const orNull = (v?: string) => (v && v.trim() !== "" ? v.trim() : null);
 export function useAddItem() {
   const qc = useQueryClient();
   return useMutation({
@@ -98,12 +100,16 @@ export function useAddItem() {
         stock:       input.stock,
         min_stock:   input.minStock,
         condition:   input.condition,
-        location:    input.location,
-        description: input.description,
+        location:    orNull(input.location),
+        description: orNull(input.description),
       });
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: inventoryKeys.items }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: inventoryKeys.items });
+      toast.success("Barang berhasil ditambahkan");
+    },
+    onError: (err: Error) => toast.error(`Gagal tambah barang: ${err.message}`),
   });
 }
 
@@ -119,12 +125,16 @@ export function useUpdateItem() {
         stock:       input.stock,
         min_stock:   input.minStock,
         condition:   input.condition,
-        location:    input.location,
-        description: input.description,
+        location:    orNull(input.location),
+        description: orNull(input.description),
       }).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: inventoryKeys.items }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: inventoryKeys.items });
+      toast.success("Barang berhasil diperbarui");
+    },
+    onError: (err: Error) => toast.error(`Gagal update barang: ${err.message}`),
   });
 }
 
@@ -135,7 +145,11 @@ export function useDeleteItem() {
       const { error } = await supabase.from("inventory_items").delete().eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: inventoryKeys.items }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: inventoryKeys.items });
+      toast.success("Barang dihapus");
+    },
+    onError: (err: Error) => toast.error(`Gagal hapus barang: ${err.message}`),
   });
 }
 
@@ -145,9 +159,9 @@ export function useAdjustStock() {
     mutationFn: async ({
       itemId, qty, type, reason, userId,
     }: { itemId: string; qty: number; type: "in" | "out" | "adjustment"; reason: string; userId?: string }) => {
-      // Get current stock first
+      // Get current item data (stock + code + name for log)
       const { data: item, error: fetchErr } = await supabase
-        .from("inventory_items").select("stock").eq("id", itemId).single();
+        .from("inventory_items").select("stock, code, name").eq("id", itemId).single();
       if (fetchErr) throw fetchErr;
 
       const newStock = type === "in"
@@ -156,23 +170,39 @@ export function useAdjustStock() {
         ? item.stock - qty
         : qty;
 
+      if (newStock < 0) throw new Error("Stok tidak boleh negatif");
+
       const { error: updateErr } = await supabase
         .from("inventory_items").update({ stock: newStock }).eq("id", itemId);
       if (updateErr) throw updateErr;
 
-      // Log the adjustment
+      // Map hook type to DB change_type
+      const changeTypeMap: Record<string, string> = {
+        in: "manual_in",
+        out: "manual_out",
+        adjustment: "adjustment",
+      };
+
+      // Log the adjustment — column names match supabase_schema.sql stock_logs table
       const { error: logErr } = await supabase.from("stock_logs").insert({
-        inventory_item_id: itemId,
-        type,
-        quantity:    qty,
-        before_qty:  item.stock,
-        after_qty:   newStock,
-        reason,
-        created_by:  userId,
+        inventory_id:    itemId,
+        inventory_code:  item.code,
+        inventory_name:  item.name,
+        change_type:     changeTypeMap[type] ?? "adjustment",
+        qty_before:      item.stock,
+        qty_change:      type === "out" ? -qty : qty,
+        qty_after:       newStock,
+        reference_type:  "manual",
+        notes:           reason,
+        created_by:      userId,
       });
       if (logErr) throw logErr;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: inventoryKeys.items }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: inventoryKeys.items });
+      toast.success("Stok berhasil disesuaikan");
+    },
+    onError: (err: Error) => toast.error(`Gagal sesuaikan stok: ${err.message}`),
   });
 }
 
@@ -186,7 +216,11 @@ export function useAddCategory() {
       });
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: inventoryKeys.categories }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: inventoryKeys.categories });
+      toast.success("Kategori berhasil ditambahkan");
+    },
+    onError: (err: Error) => toast.error(`Gagal tambah kategori: ${err.message}`),
   });
 }
 
@@ -199,7 +233,11 @@ export function useUpdateCategory() {
       }).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: inventoryKeys.categories }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: inventoryKeys.categories });
+      toast.success("Kategori berhasil diperbarui");
+    },
+    onError: (err: Error) => toast.error(`Gagal update kategori: ${err.message}`),
   });
 }
 
@@ -210,6 +248,10 @@ export function useDeleteCategory() {
       const { error } = await supabase.from("inventory_categories").delete().eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: inventoryKeys.categories }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: inventoryKeys.categories });
+      toast.success("Kategori dihapus");
+    },
+    onError: (err: Error) => toast.error(`Gagal hapus kategori: ${err.message}`),
   });
 }

@@ -9,7 +9,6 @@ import {
   Textarea,
   Select,
   DatePicker,
-  Badge,
   StatusBadge,
   Modal,
   ConfirmDialog
@@ -25,7 +24,11 @@ export default function ProjectModal({ customer, onClose }: Props) {
   const { mutate: deleteProject } = useDeleteProject();
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState(emptyProject);
+  const [form, setForm] = useState<{
+    name: string; location: string; status: CustomerProject["status"];
+    startDate: string; endDate: string; description: string;
+    recipientName: string; recipientPhone: string;
+  }>(emptyProject);
   const [delConfirm, setDelConfirm] = useState<string | null>(null);
 
   const openCreate = useCallback(() => {

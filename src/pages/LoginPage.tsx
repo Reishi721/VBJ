@@ -54,7 +54,7 @@ export default function LoginPage() {
           </div>
           <div>
             <p className="text-white font-bold text-[16px] tracking-tight">{company.name.trim()}</p>
-            <p className="text-slate-400 text-[11px] font-medium">{company.tagline}</p>
+            <p className="text-slate-400 text-[11px] font-medium">{(company as any).tagline ?? "Enterprise Resource Planning"}</p>
           </div>
         </div>
 

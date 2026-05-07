@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { useCompanySettings } from "../../hooks/useSettings";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
-import { formatRupiah } from "../invoice/InvoiceHelpers";
+
 
 interface ReceivablesGroup {
   key: string;

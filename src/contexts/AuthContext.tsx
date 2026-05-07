@@ -32,7 +32,6 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-/** Buat profile default jika tabel profiles belum ada / unreachable */
 const makeDefaultProfile = (userId: string): UserProfile => ({
   id: userId,
   full_name: null,
@@ -42,7 +41,10 @@ const makeDefaultProfile = (userId: string): UserProfile => ({
   phone: null,
 });
 
-/** Fetch profile dengan timeout 5 detik agar tidak hang selamanya */
+/**
+ * Fetch profile dengan timeout 5 detik.
+ * TIDAK memblokir loading UI — dipanggil di background.
+ */
 const fetchProfileSafe = async (userId: string): Promise<UserProfile> => {
   try {
     const { data, error } = await Promise.race([
@@ -51,29 +53,21 @@ const fetchProfileSafe = async (userId: string): Promise<UserProfile> => {
         .select("id, full_name, avatar_url, role, is_active, phone")
         .eq("id", userId)
         .single(),
-      // Timeout 6 detik
       new Promise<{ data: null; error: Error }>((resolve) =>
-        setTimeout(() => resolve({ data: null, error: new Error("timeout") }), 6000)
+        setTimeout(() => resolve({ data: null, error: new Error("timeout") }), 5000)
       ),
     ]);
 
     if (error) {
-      // Jangan tampilkan 500/404 di console produksi — cukup gunakan default
-      if (import.meta.env.DEV) {
-        console.warn("[Auth] profiles fetch:", error.message);
-      }
+      if (import.meta.env.DEV) console.warn("[Auth] profiles fetch:", error.message);
       return makeDefaultProfile(userId);
     }
-
     if (data) return data as UserProfile;
   } catch (e) {
-    if (import.meta.env.DEV) {
-      console.warn("[Auth] fetchProfileSafe threw:", e);
-    }
+    if (import.meta.env.DEV) console.warn("[Auth] fetchProfileSafe threw:", e);
   }
   return makeDefaultProfile(userId);
 };
-
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -81,21 +75,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile]   = useState<UserProfile | null>(null);
   const [loading, setLoading]   = useState(true);
 
-  // Guard: pastikan setLoading(false) selalu dipanggil max 8 detik
-  const loadingGuard = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Hard safety net: jika tidak ada event sama sekali dalam 4 detik, buka UI
+  const safetyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const startLoadingGuard = () => {
-    if (loadingGuard.current) clearTimeout(loadingGuard.current);
-    loadingGuard.current = setTimeout(() => {
-      console.warn("[Auth] Loading timeout — force-resolving");
-      setLoading(false);
-    }, 8000);
-  };
-
-  const clearLoadingGuard = () => {
-    if (loadingGuard.current) {
-      clearTimeout(loadingGuard.current);
-      loadingGuard.current = null;
+  const clearSafety = () => {
+    if (safetyTimer.current) {
+      clearTimeout(safetyTimer.current);
+      safetyTimer.current = null;
     }
   };
 
@@ -109,82 +95,80 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let mounted = true;
 
-    startLoadingGuard();
+    // Safety net: paksa buka UI setelah 4 detik jika event tidak kunjung datang
+    safetyTimer.current = setTimeout(() => {
+      if (import.meta.env.DEV) console.warn("[Auth] Safety timeout — force-resolving");
+      if (mounted) setLoading(false);
+    }, 4000);
 
-    // ─ 1. Cek session yang sudah ada (dari localStorage) ─
-    supabase.auth.getSession()
-      .then(async ({ data, error }) => {
-        if (!mounted) return;
-
-        if (error) {
-          // Session invalid/corrupt → bersihkan dan redirect ke login
-          console.warn("[Auth] getSession error:", error.message);
-          await supabase.auth.signOut().catch(() => null);
-          setSession(null);
-          setProfile(null);
-          setLoading(false);
-          clearLoadingGuard();
-          return;
-        }
-
-        setSession(data.session);
-
-        if (data.session?.user) {
-          const p = await fetchProfileSafe(data.session.user.id);
-          if (mounted) setProfile(p);
-        }
-
-        if (mounted) {
-          setLoading(false);
-          clearLoadingGuard();
-        }
-      })
-      .catch(async (err) => {
-        // getSession() sendiri throw (jaringan mati, dll)
-        console.warn("[Auth] getSession threw:", err);
-        if (!mounted) return;
-
-        // Coba baca dari onAuthStateChange saja — jangan hang
-        setSession(null);
-        setProfile(null);
-        setLoading(false);
-        clearLoadingGuard();
-      });
-
-    // ─ 2. Listen perubahan auth state (login / logout / token refresh) ─
+    /**
+     * ✅ PATTERN SUPABASE V2 YANG BENAR:
+     * onAuthStateChange + INITIAL_SESSION menggantikan getSession().
+     * Event INITIAL_SESSION SELALU dipanggil pertama, berisi session dari cache localStorage.
+     * Ini sinkron (dari cache) — tidak ada network request → tidak ada delay.
+     */
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, newSession) => {
         if (!mounted) return;
 
-        // INITIAL_SESSION sudah ditangani oleh getSession() di atas
-        // Hindari double-fetch
-        if (event === "INITIAL_SESSION") return;
+        if (import.meta.env.DEV) console.log("[Auth] event:", event);
 
-        setSession(newSession);
+        if (event === "INITIAL_SESSION") {
+          // ✅ KUNCI FIX: Set session & loading(false) SEGERA dari cache localStorage.
+          // Profile di-fetch di background — tidak memblokir render.
+          setSession(newSession);
+          setLoading(false);   // ← UI langsung muncul!
+          clearSafety();
 
-        if (newSession?.user) {
-          const p = await fetchProfileSafe(newSession.user.id);
-          if (mounted) setProfile(p);
-        } else {
-          setProfile(null);
+          // Fetch profile di background setelah UI sudah render
+          if (newSession?.user) {
+            fetchProfileSafe(newSession.user.id).then((p) => {
+              if (mounted) setProfile(p);
+            });
+          }
+          return;
         }
 
-        // Pastikan loading selesai jika event apapun datang
-        if (mounted) {
+        if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+          setSession(newSession);
           setLoading(false);
-          clearLoadingGuard();
+          clearSafety();
+          if (newSession?.user) {
+            fetchProfileSafe(newSession.user.id).then((p) => {
+              if (mounted) setProfile(p);
+            });
+          }
+          return;
+        }
+
+        if (event === "SIGNED_OUT") {
+          setSession(null);
+          setProfile(null);
+          setLoading(false);
+          clearSafety();
+          return;
+        }
+
+        if (event === "USER_UPDATED") {
+          setSession(newSession);
+          if (newSession?.user) {
+            fetchProfileSafe(newSession.user.id).then((p) => {
+              if (mounted) setProfile(p);
+            });
+          }
+          return;
         }
       }
     );
 
     return () => {
       mounted = false;
-      clearLoadingGuard();
+      clearSafety();
       subscription.unsubscribe();
     };
   }, []);
 
-  // ─── signIn ───────────────────────────────────────────────────────────────
+  // ─── signIn ─────────────────────────────────────────────────────────────────
   const signIn = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
@@ -201,15 +185,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: null };
   };
 
-  // ─── signOut ──────────────────────────────────────────────────────────────
+  // ─── signOut ─────────────────────────────────────────────────────────────────
   const signOut = async () => {
     await supabase.auth.signOut();
     setSession(null);
     setProfile(null);
   };
 
-  const role           = profile?.role ?? "staff";
-  const isAdmin        = role === "admin";
+  const role             = profile?.role ?? "staff";
+  const isAdmin          = role === "admin";
   const isManagerOrAbove = role === "admin" || role === "manager";
 
   return (

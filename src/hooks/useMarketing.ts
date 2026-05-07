@@ -3,6 +3,7 @@
  */
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
+import { toast } from "sonner";
 import { supabase } from "../lib/supabase";
 import type { Marketing } from "../types";
 
@@ -33,7 +34,7 @@ export function useMarketing() {
 
   useEffect(() => {
     const ch = supabase
-      .channel("realtime:marketing")
+      .channel(`realtime:marketing_${Math.random().toString(36).slice(2)}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "marketing" },
         () => qc.invalidateQueries({ queryKey: marketingKeys.all }))
       .subscribe();
@@ -55,7 +56,11 @@ export function useAddMarketing() {
       });
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: marketingKeys.all }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: marketingKeys.all });
+      toast.success("Data marketing ditambahkan");
+    },
+    onError: (err: Error) => toast.error(`Gagal tambah marketing: ${err.message}`),
   });
 }
 
@@ -69,7 +74,11 @@ export function useUpdateMarketing() {
       }).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: marketingKeys.all }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: marketingKeys.all });
+      toast.success("Data marketing diperbarui");
+    },
+    onError: (err: Error) => toast.error(`Gagal update marketing: ${err.message}`),
   });
 }
 
@@ -80,6 +89,10 @@ export function useDeleteMarketing() {
       const { error } = await supabase.from("marketing").delete().eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: marketingKeys.all }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: marketingKeys.all });
+      toast.success("Data marketing dihapus");
+    },
+    onError: (err: Error) => toast.error(`Gagal hapus marketing: ${err.message}`),
   });
 }

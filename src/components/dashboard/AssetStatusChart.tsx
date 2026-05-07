@@ -7,7 +7,6 @@ export default function AssetStatusChart() {
   const { items } = useInventoryStore();
 
   const data = useMemo(() => {
-    const totalStock   = items.reduce((s, i) => s + i.stock, 0);
     const damaged      = items.filter(i => i.condition === "damaged").reduce((s, i) => s + i.stock, 0);
     const maintenance  = items.filter(i => i.condition === "maintenance").reduce((s, i) => s + i.stock, 0);
     const available    = items.filter(i => i.condition === "good").reduce((s, i) => s + i.stock, 0);
@@ -46,7 +45,7 @@ export default function AssetStatusChart() {
                 ))}
               </Pie>
               <Tooltip
-                formatter={(value: number) => [`${value.toLocaleString("id-ID")} Unit`, ""]}
+                formatter={(value) => [`${(value as number).toLocaleString("id-ID")} Unit`, ""]}
                 contentStyle={{ borderRadius: "12px", border: "none", boxShadow: "0 4px 20px rgba(0,0,0,0.1)", fontSize: "12px" }}
               />
             </PieChart>

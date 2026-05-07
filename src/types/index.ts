@@ -170,3 +170,57 @@ export interface Payment {
   notes?: string;
   createdAt: string;
 }
+
+// ─── Purchase Order ───────────────────────────────────────────────────────────
+
+export interface PurchaseOrderItem {
+  id?: string;
+  inventoryId?: string;
+  inventoryCode: string;
+  inventoryName: string;
+  unit: string;
+  qtyOrdered: number;
+  qtyReceived: number;
+  unitPrice: number;
+  subtotal: number;
+  note?: string;
+}
+
+export type POStatus = "draft" | "ordered" | "partial" | "completed" | "cancelled";
+
+export interface PurchaseOrder {
+  id: string;
+  number: string;           // PO-2026-001
+  date: string;
+  supplierName: string;
+  supplierPhone?: string;
+  supplierAddress?: string;
+  status: POStatus;
+  items: PurchaseOrderItem[];
+  subtotal: number;
+  discount: number;
+  total: number;
+  notes?: string;
+  receivedBy?: string;
+  receivedAt?: string;
+  createdAt: string;
+}
+
+// ─── Stock Log ───────────────────────────────────────────────────────────────
+
+export interface StockLog {
+  id: string;
+  inventoryId: string;
+  inventoryCode: string;
+  inventoryName: string;
+  changeType: "po_receive" | "po_edit" | "manual_in" | "manual_out" | "sj_out" | "sj_in" | "adjustment";
+  qtyBefore: number;
+  qtyChange: number;
+  qtyAfter: number;
+  referenceId?: string;
+  referenceType?: string;
+  referenceNumber?: string;
+  notes?: string;
+  createdBy?: string;
+  createdAt: string;
+}

@@ -22,3 +22,13 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Environment (jangan commit ke repo!)
+.env
+.env.local
+.env.*.local
+
+# Build artifacts & archives
+*.zip
+*.tar.gz
+src.zip

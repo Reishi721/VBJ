@@ -1,9 +1,9 @@
-import { useMemo, useState, useRef, Fragment } from "react";
+import { useMemo, useState, useRef } from "react";
 import { useInvoices } from "../hooks/useInvoices";
 import {
-  BarChart3, Printer, Search, ChevronDown, ChevronRight,
-  Calendar, Users, FileText, TrendingUp, Filter, Download,
-  CreditCard, AlertTriangle, CheckCircle2, Clock,
+  BarChart3, Printer, ChevronDown, ChevronRight,
+  Calendar, Users, FileText, TrendingUp,
+  CreditCard, AlertTriangle, CheckCircle2,
 } from "lucide-react";
 import { Button, SearchBar, SectionHeader } from "../components/ui";
 import { formatRupiah } from "../components/invoice/InvoiceHelpers";

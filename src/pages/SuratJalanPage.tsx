@@ -1,13 +1,15 @@
 import { useState, useMemo, useCallback } from "react";
-import { useSuratJalan, useAddSuratJalan, useUpdateSuratJalan, useDeleteSuratJalan } from "../hooks/useSuratJalan";
+import { useDraftGuard } from "../hooks/useDraftGuard";
+import { useSuratJalan, useAddSuratJalan, useUpdateSuratJalan, useDeleteSuratJalan, useUpdateSJStatus } from "../hooks/useSuratJalan";
 import { useCustomers } from "../hooks/useCustomers";
 import { useInventoryItems } from "../hooks/useInventory";
 import type { SuratJalan, SuratJalanItem } from "../types";
-import { Plus, Pencil, Trash2, Eye, Truck, FileText, CheckCircle2, XCircle, Clock, Send, MapPin, User, Phone, Car, Printer } from "lucide-react";
+import { Plus, Pencil, Trash2, Eye, Truck, FileText, CheckCircle2, XCircle, Clock, Send, MapPin, User, Phone, Printer } from "lucide-react";
 import SuratJalanPrintModal from "../components/surat-jalan/SuratJalanPrintModal";
 import {
   Button, SearchBar, TextInput, Textarea, Select, SearchSelect,
-  Badge, Modal, ConfirmDialog, SectionHeader, StatsRow, DataTable, DatePicker
+  Badge, Modal, ConfirmDialog, SectionHeader, StatsRow, DataTable, DatePicker,
+  DraftGuardDialog,
 } from "../components/ui";
 import type { ColumnDef } from "@tanstack/react-table";
 
@@ -27,6 +29,7 @@ function SJStatusBadge({ status }: { status: SuratJalan["status"] }) {
 const emptyLineItem: SuratJalanItem = { inventoryId: "", inventoryCode: "", inventoryName: "", unit: "pcs", qty: 1 };
 
 const emptyForm = {
+  number: "",
   customerId: "", customerName: "", projectId: "", projectName: "",
   date: new Date().toISOString().split("T")[0],
   type: "pengiriman" as SuratJalan["type"],
@@ -137,6 +140,7 @@ export default function SuratJalanPage() {
   const { mutate: addSuratJalan } = useAddSuratJalan();
   const { mutate: updateSuratJalan } = useUpdateSuratJalan();
   const { mutate: deleteSuratJalan } = useDeleteSuratJalan();
+  const { mutate: updateStatus, isPending: updatingStatus } = useUpdateSJStatus();
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -179,12 +183,13 @@ export default function SuratJalanPage() {
 
   // ─ Handlers ─
   const openCreate = useCallback(() => {
-    setForm({ ...emptyForm, items: [{ ...emptyLineItem }] });
+    setForm({ ...emptyForm, number: "", items: [{ ...emptyLineItem }] });
     setEditingId(null); setShowForm(true);
   }, []);
 
   const openEdit = useCallback((sj: SuratJalan) => {
     setForm({
+      number: sj.number,
       customerId: sj.customerId, customerName: sj.customerName,
       projectId: sj.projectId || "", projectName: sj.projectName || "",
       date: sj.date, type: sj.type,
@@ -197,14 +202,46 @@ export default function SuratJalanPage() {
     setEditingId(sj.id); setShowForm(true);
   }, []);
 
+  const closeFormAndReset = useCallback(() => {
+    setShowForm(false);
+    setEditingId(null);
+    setForm({ ...emptyForm, items: [{ ...emptyLineItem }] });
+  }, []);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const validItems = form.items.filter(i => i.inventoryId && i.qty > 0);
     if (!validItems.length) return alert("Tambahkan minimal 1 barang.");
     if (editingId) updateSuratJalan({ id: editingId, input: { ...form, items: validItems } });
     else addSuratJalan({ ...form, items: validItems });
-    setShowForm(false);
+    closeFormAndReset();
   };
+
+  const saveDraftCb = useCallback(async () => {
+    const draftForm = { ...form, status: "draft" as SuratJalan["status"] };
+    const validItems = draftForm.items.filter(i => i.inventoryId && i.qty > 0);
+    return new Promise<void>((resolve, reject) => {
+      if (editingId) {
+        updateSuratJalan({ id: editingId, input: { ...draftForm, items: validItems } }, {
+          onSuccess: () => { closeFormAndReset(); resolve(); },
+          onError: reject,
+        });
+      } else {
+        addSuratJalan({ ...draftForm, items: validItems.length ? validItems : form.items }, {
+          onSuccess: () => { closeFormAndReset(); resolve(); },
+          onError: reject,
+        });
+      }
+    });
+  }, [form, editingId, addSuratJalan, updateSuratJalan, closeFormAndReset]);
+
+  const guard = useDraftGuard({
+    form: form as Record<string, unknown>,
+    emptyForm: { ...emptyForm, items: [] } as Record<string, unknown>,
+    onDiscard: closeFormAndReset,
+    onSaveDraft: saveDraftCb,
+    isDirty: (f) => !!(f["customerName"] as string)?.trim(),
+  });
 
   // ─ Line item helpers ─
   const addLineItem = () => setForm(f => ({ ...f, items: [...f.items, { ...emptyLineItem }] }));
@@ -215,6 +252,18 @@ export default function SuratJalanPage() {
   const pickInventory = (idx: number, inventoryId: string) => {
     const inv = inventoryItems.find(i => i.id === inventoryId);
     if (inv) updateLineItem(idx, { inventoryId, inventoryCode: inv.code, inventoryName: inv.name, unit: inv.unit });
+  };
+
+  // ─ Status progression helper ─
+  const nextStatus = (current: SuratJalan["status"]): SuratJalan["status"] | null => {
+    if (current === "draft")      return "sent";
+    if (current === "sent")       return "delivered";
+    return null;
+  };
+  const nextLabel = (current: SuratJalan["status"]): string => {
+    if (current === "draft")  return "Kirim";
+    if (current === "sent")   return "Konfirmasi Diterima";
+    return "";
   };
 
   // ─ Columns ─
@@ -260,18 +309,40 @@ export default function SuratJalanPage() {
       ),
     },
     {
-      header: "Status",
-      accessorKey: "status",
-      cell: ({ row }) => <SJStatusBadge status={row.original.status} />,
-    },
-    {
       header: "Aksi",
       id: "actions",
       enableSorting: false,
       cell: ({ row }) => {
         const sj = row.original;
+        const next = nextStatus(sj.status);
         return (
           <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            {/* Advance status button */}
+            {next && (
+              <button
+                disabled={updatingStatus}
+                onClick={() => updateStatus({ sj, newStatus: next })}
+                title={nextLabel(sj.status)}
+                className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-bold transition-all ${
+                  next === "delivered"
+                    ? "bg-emerald-50 text-emerald-600 hover:bg-emerald-100"
+                    : "bg-blue-50 text-blue-600 hover:bg-blue-100"
+                }`}
+              >
+                {next === "delivered" ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Send className="w-3.5 h-3.5" />}
+                {nextLabel(sj.status)}
+              </button>
+            )}
+            {/* Cancel button — only for non-delivered */}
+            {sj.status !== "cancelled" && sj.status !== "delivered" && (
+              <button
+                onClick={() => updateStatus({ sj, newStatus: "cancelled" })}
+                title="Batalkan"
+                className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-all"
+              >
+                <XCircle className="w-3.5 h-3.5" />
+              </button>
+            )}
             <Button variant="ghost" size="sm" className="px-2" onClick={() => setViewSJ(sj)} title="Lihat detail">
               <Eye className="w-4 h-4 text-gray-400 hover:text-blue-600" />
             </Button>
@@ -290,7 +361,7 @@ export default function SuratJalanPage() {
         );
       },
     },
-  ], [openEdit]);
+  ], [openEdit, updateStatus, updatingStatus, nextStatus, nextLabel]);
 
   return (
     <div className="space-y-6">
@@ -331,11 +402,14 @@ export default function SuratJalanPage() {
       {viewSJ && <DetailModal sj={viewSJ} onClose={() => setViewSJ(null)} />}
 
       {/* ─── Form Modal ─── */}
-      <Modal open={showForm} onClose={() => setShowForm(false)}
+      <Modal open={showForm} onClose={guard.handleClose}
         title={editingId ? "Edit Surat Jalan" : "Buat Surat Jalan"} size="xl">
         <form id="sj-form" onSubmit={handleSubmit} className="space-y-5">
           {/* Header info */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <TextInput label="No. Surat Jalan" placeholder="Auto-generate" 
+              value={form.number} onChange={e => setForm(f => ({ ...f, number: e.target.value }))}
+              hint="Kosongkan untuk otomatis" />
             <DatePicker label="Tanggal" required value={form.date}
               onChange={val => setForm(f => ({ ...f, date: val }))} />
             <Select label="Jenis Surat Jalan" value={form.type}
@@ -444,7 +518,7 @@ export default function SuratJalanPage() {
             value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
         </form>
         <div className="flex justify-end gap-3 mt-6">
-          <Button variant="outline" onClick={() => setShowForm(false)}>Batal</Button>
+          <Button variant="outline" onClick={guard.handleClose}>Batal</Button>
           <Button type="submit" form="sj-form">{editingId ? "Simpan Perubahan" : "Buat Surat Jalan"}</Button>
         </div>
       </Modal>
@@ -457,6 +531,17 @@ export default function SuratJalanPage() {
         title="Hapus Surat Jalan?"
         description="Surat jalan yang dihapus tidak dapat dikembalikan."
         confirmLabel="Hapus" variant="danger" />
+
+      {/* ── Draft Guard Dialog ───────────────────────────────────────────── */}
+      <DraftGuardDialog
+        open={guard.showGuard}
+        entityName="Surat Jalan"
+        filledName={guard.filledName}
+        onSaveDraft={guard.confirmSaveDraft}
+        onDiscard={guard.confirmDiscard}
+        onCancel={guard.cancelGuard}
+        savingDraft={guard.savingDraft}
+      />
     </div>
   );
 }

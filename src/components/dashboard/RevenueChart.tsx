@@ -151,9 +151,9 @@ export default function RevenueChart() {
               width={45}
             />
             <Tooltip
-              formatter={(value: number, name: string) => {
-                const year = name.replace("revenue_", "");
-                return [formatCurrency(value), `Tahun ${year}`];
+              formatter={(value, name) => {
+                const year = (name as string).replace("revenue_", "");
+                return [formatCurrency(value as number), `Tahun ${year}`];
               }}
               cursor={{ fill: "rgba(59,130,246,0.04)", radius: 8 }}
               contentStyle={{

@@ -3,6 +3,7 @@
  */
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
+import { toast } from "sonner";
 import { supabase } from "../lib/supabase";
 import type { Invoice, Payment, InvoiceStatus } from "../types";
 
@@ -79,7 +80,7 @@ export function useInvoices() {
 
   useEffect(() => {
     const ch = supabase
-      .channel("realtime:invoices")
+      .channel(`realtime:invoices_${Math.random().toString(36).slice(2)}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "invoices" },
         () => qc.invalidateQueries({ queryKey: invoiceKeys.all }))
       .subscribe();
@@ -96,7 +97,7 @@ export function usePayments() {
     queryKey: invoiceKeys.payments,
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("invoice_payments")
+        .from("payments")
         .select("*")
         .order("date", { ascending: false });
       if (error) throw error;
@@ -106,8 +107,8 @@ export function usePayments() {
 
   useEffect(() => {
     const ch = supabase
-      .channel("realtime:payments")
-      .on("postgres_changes", { event: "*", schema: "public", table: "invoice_payments" },
+      .channel(`realtime:payments_${Math.random().toString(36).slice(2)}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "payments" },
         () => {
           qc.invalidateQueries({ queryKey: invoiceKeys.payments });
           qc.invalidateQueries({ queryKey: invoiceKeys.all }); // update paid_amount
@@ -120,40 +121,46 @@ export function usePayments() {
 }
 
 // ─── Mutations ─────────────────────────────────────────────────────────────────
-type InvoiceInput = Omit<Invoice, "id" | "createdAt" | "number">;
+type InvoiceInput = Omit<Invoice, "id" | "createdAt" | "number"> & { number?: string; };
+
+const orNull = (v?: string) => (v && v.trim() !== "" ? v.trim() : null);
 
 export function useAddInvoice() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: InvoiceInput) => {
-      // Generate nomor invoice di server
-      const { data: lastInv } = await supabase
-        .from("invoices")
-        .select("number")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .single();
-
-      const year   = new Date().getFullYear();
-      const lastNo = lastInv?.number?.match(/\d+$/)?.[0] ?? "0";
-      const nextNo = String(parseInt(lastNo) + 1).padStart(3, "0");
-      const number = `INV-${year}-${nextNo}`;
+      let numberToUse = input.number;
+      if (!numberToUse || numberToUse.trim() === "") {
+        // Generate nomor invoice secara atomic via PostgreSQL sequence
+        const { data: numberData, error: numErr } = await supabase
+          .rpc("generate_invoice_number");
+        if (numErr) {
+          // Fallback: client-side generation jika fungsi belum di-deploy
+          const { data: lastInv } = await supabase
+            .from("invoices").select("number").order("created_at", { ascending: false }).limit(1).single();
+          const year   = new Date().getFullYear();
+          const lastNo = lastInv?.number?.match(/\d+$/)?.[0] ?? "0";
+          const nextNo = String(parseInt(lastNo) + 1).padStart(3, "0");
+          numberToUse = `INV-${year}-${nextNo}`;
+        } else {
+          numberToUse = numberData as string;
+        }
+      }
 
       const { error } = await supabase.from("invoices").insert({
-        number,
-        summary_description: input.summaryDescription,
+        number: numberToUse,
+        summary_description: orNull(input.summaryDescription),
         date:                input.date,
         due_date:            input.dueDate,
-        po_number:           input.poNumber,
-        billing_cycle:       input.billingCycle,
+        po_number:           orNull(input.poNumber),
+        billing_cycle:       orNull(input.billingCycle),
         customer_id:         input.customerId,
         customer_name:       input.customerName,
         customer_address:    input.customerAddress,
-        project_id:          input.projectId,
-        project_name:        input.projectName,
-        up_name:             input.upName,
-        up_phone:            input.upPhone,
-        items:               input.items,
+        project_id:          input.projectId || null,
+        project_name:        orNull(input.projectName),
+        up_name:             orNull(input.upName),
+        up_phone:            orNull(input.upPhone),
         subtotal:            input.subtotal,
         transport_fee:       input.transportFee,
         deposit_fee:         input.depositFee,
@@ -164,11 +171,15 @@ export function useAddInvoice() {
         paid_amount:         0,
         remaining_amount:    input.total,
         status:              input.status,
-        notes:               input.notes,
+        notes:               orNull(input.notes),
       });
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: invoiceKeys.all }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: invoiceKeys.all });
+      toast.success("Invoice berhasil dibuat");
+    },
+    onError: (err: Error) => toast.error(`Gagal buat invoice: ${err.message}`),
   });
 }
 
@@ -176,20 +187,19 @@ export function useUpdateInvoice() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, input }: { id: string; input: Partial<Invoice> }) => {
-      const { error } = await supabase.from("invoices").update({
-        summary_description: input.summaryDescription,
+      const updatePayload: any = {
+        summary_description: orNull(input.summaryDescription),
         date:                input.date,
         due_date:            input.dueDate,
-        po_number:           input.poNumber,
-        billing_cycle:       input.billingCycle,
+        po_number:           orNull(input.poNumber),
+        billing_cycle:       orNull(input.billingCycle),
         customer_id:         input.customerId,
         customer_name:       input.customerName,
         customer_address:    input.customerAddress,
-        project_id:          input.projectId,
-        project_name:        input.projectName,
-        up_name:             input.upName,
-        up_phone:            input.upPhone,
-        items:               input.items,
+        project_id:          input.projectId || null,
+        project_name:        orNull(input.projectName),
+        up_name:             orNull(input.upName),
+        up_phone:            orNull(input.upPhone),
         subtotal:            input.subtotal,
         transport_fee:       input.transportFee,
         deposit_fee:         input.depositFee,
@@ -199,11 +209,20 @@ export function useUpdateInvoice() {
         total:               input.total,
         remaining_amount:    input.remainingAmount,
         status:              input.status,
-        notes:               input.notes,
-      }).eq("id", id);
+        notes:               orNull(input.notes),
+      };
+      if (input.number) {
+        updatePayload.number = input.number;
+      }
+
+      const { error } = await supabase.from("invoices").update(updatePayload).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: invoiceKeys.all }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: invoiceKeys.all });
+      toast.success("Invoice berhasil diperbarui");
+    },
+    onError: (err: Error) => toast.error(`Gagal update invoice: ${err.message}`),
   });
 }
 
@@ -214,7 +233,11 @@ export function useDeleteInvoice() {
       const { error } = await supabase.from("invoices").delete().eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: invoiceKeys.all }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: invoiceKeys.all });
+      toast.success("Invoice dihapus");
+    },
+    onError: (err: Error) => toast.error(`Gagal hapus invoice: ${err.message}`),
   });
 }
 
@@ -223,7 +246,7 @@ export function useAddPayment() {
   return useMutation({
     mutationFn: async (payment: Omit<Payment, "id" | "createdAt">) => {
       // Insert payment
-      const { error: pErr } = await supabase.from("invoice_payments").insert({
+      const { error: pErr } = await supabase.from("payments").insert({
         invoice_id:     payment.invoiceId,
         invoice_number: payment.invoiceNumber,
         customer_id:    payment.customerId,
@@ -259,6 +282,8 @@ export function useAddPayment() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: invoiceKeys.all });
       qc.invalidateQueries({ queryKey: invoiceKeys.payments });
+      toast.success("Pembayaran berhasil dicatat");
     },
+    onError: (err: Error) => toast.error(`Gagal catat pembayaran: ${err.message}`),
   });
 }

@@ -37,7 +37,7 @@ async function fetchRecaps(): Promise<RentalRecap[]> {
         unit:          c.unit,
         order:         c.col_order,
       }))
-      .sort((a, b) => a.order - b.order),
+      .sort((a: { order: number }, b: { order: number }) => a.order - b.order),
   }));
 }
 
@@ -47,7 +47,7 @@ export function useRentalRecaps() {
 
   useEffect(() => {
     const ch = supabase
-      .channel("realtime:rental_recap")
+      .channel(`realtime:rental_recap_${Math.random().toString(36).slice(2)}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "rental_recap" },
         () => qc.invalidateQueries({ queryKey: recapKeys.all }))
       .on("postgres_changes", { event: "*", schema: "public", table: "rental_recap_columns" },
@@ -96,14 +96,14 @@ export function useAddRecap() {
 export function useUpdateRecap() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, input }: { id: string; input: Partial<RecapInput> }) => {
+    mutationFn: async ({ id, input }: { id: string; input: Partial<RecapInputWithCols> }) => {
       const { error } = await supabase.from("rental_recap").update({
         customer_id:      input.customerId,
         customer_name:    input.customerName,
         customer_address: input.customerAddress,
-        project_id:       input.projectId,
-        project_name:     input.projectName,
-        notes:            input.notes,
+        project_id:       input.projectId || null,
+        project_name:     input.projectName || null,
+        notes:            input.notes || null,
       }).eq("id", id);
       if (error) throw error;
     },
@@ -165,7 +165,7 @@ export function useRemoveRecapColumn() {
 export function useReorderRecapColumns() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ recapId, columns }: { recapId: string; columns: RentalRecapColumn[] }) => {
+    mutationFn: async ({ recapId: _recapId, columns }: { recapId: string; columns: RentalRecapColumn[] }) => {
       // Supabase doesn't easily support bulk upsert without constraints matching perfectly on conflict.
       // So we will do it in parallel
       const promises = columns.map(col => 

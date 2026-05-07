@@ -1,6 +1,5 @@
 import { forwardRef } from "react";
 import type { SuratJalan } from "../../types";
-import { useCompanySettings } from "../../hooks/useSettings";
 import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 
@@ -12,8 +11,7 @@ interface Props {
 
 const SuratJalanPrintLayout = forwardRef<HTMLDivElement, Props>(
   ({ sj, paperWidth, paperHeight }, ref) => {
-    const { data: settingsData } = useCompanySettings();
-    const company = settingsData?.company || { name: "", tagline: "", addressLine1: "" };
+
 
     const formattedDate = format(new Date(sj.date), "dd MMMM yyyy", { locale: idLocale });
     const typeLabel = sj.type === "pengiriman" ? "PENGIRIMAN" : "PENGEMBALIAN";

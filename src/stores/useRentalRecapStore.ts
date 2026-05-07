@@ -11,7 +11,7 @@ interface RentalRecapStore {
   reorderColumns: (recapId: string, columns: RentalRecapColumn[]) => void;
 }
 
-export const useRentalRecapStore = create<RentalRecapStore>((set, get) => ({
+export const useRentalRecapStore = create<RentalRecapStore>((set) => ({
   recaps: [],
 
   addRecap: (r) => {

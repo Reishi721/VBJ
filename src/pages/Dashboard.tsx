@@ -7,7 +7,6 @@ import RecentActivity from "../components/dashboard/RecentActivity";
 import DueTodayWidget from "../components/dashboard/DueTodayWidget";
 import { useInventoryItems } from "../hooks/useInventory";
 import { useInvoices, usePayments } from "../hooks/useInvoices";
-import { formatCurrency } from "../lib/utils";
 
 function shortRupiah(val: number) {
   if (val >= 1_000_000_000) return `Rp ${(val / 1_000_000_000).toFixed(1)}M`;

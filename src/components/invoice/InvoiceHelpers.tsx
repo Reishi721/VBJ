@@ -1,6 +1,5 @@
-import type { Invoice, InvoiceStatus, InvoiceType } from "../../types";
+import type { InvoiceStatus } from "../../types";
 import { Badge } from "../ui";
-import { CheckCircle2, Clock, Send, XCircle, AlertTriangle, CreditCard } from "lucide-react";
 
 // ─── Format Currency ──────────────────────────────────────────────────────────
 export function formatRupiah(n: number) {

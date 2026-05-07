@@ -1,5 +1,6 @@
 import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { Toaster } from 'sonner'
 import Layout from './components/layout/Layout'
 import ProtectedRoute from './components/layout/ProtectedRoute'
 import { AuthProvider } from './contexts/AuthContext'
@@ -15,6 +16,7 @@ const InvoicePage     = lazy(() => import('./pages/InvoicePage'))
 const SettingsPage    = lazy(() => import('./pages/SettingsPage'))
 const RentalRecapPage = lazy(() => import('./pages/RentalRecapPage'))
 const ReportsPage     = lazy(() => import('./pages/ReportsPage'))
+const ReceivablesReportPage = lazy(() => import('./pages/ReceivablesReportPage'))
 
 // ─── Loading fallback ─────────────────────────────────────────────────────────
 function PageLoader() {
@@ -27,6 +29,9 @@ function PageLoader() {
     </div>
   )
 }
+
+const FinancePage        = lazy(() => import('./pages/FinancePage'))
+const PurchaseOrderPage  = lazy(() => import('./pages/PurchaseOrderPage'))
 
 function App() {
   return (
@@ -51,9 +56,12 @@ function App() {
               <Route path="customers" element={<Suspense fallback={<PageLoader />}><CustomerPage /></Suspense>} />
               <Route path="inventory" element={<Suspense fallback={<PageLoader />}><InventoryPage /></Suspense>} />
               <Route path="surat-jalan" element={<Suspense fallback={<PageLoader />}><SuratJalanPage /></Suspense>} />
-              <Route path="invoice" element={<Suspense fallback={<PageLoader />}><InvoicePage /></Suspense>} />
+              <Route path="invoice"          element={<Suspense fallback={<PageLoader />}><InvoicePage /></Suspense>} />
+              <Route path="finance"          element={<Suspense fallback={<PageLoader />}><FinancePage /></Suspense>} />
+              <Route path="purchase-orders" element={<Suspense fallback={<PageLoader />}><PurchaseOrderPage /></Suspense>} />
               <Route path="rekapan" element={<Suspense fallback={<PageLoader />}><RentalRecapPage /></Suspense>} />
               <Route path="reports" element={<Suspense fallback={<PageLoader />}><ReportsPage /></Suspense>} />
+              <Route path="piutang" element={<Suspense fallback={<PageLoader />}><ReceivablesReportPage /></Suspense>} />
               <Route path="settings" element={<Suspense fallback={<PageLoader />}><SettingsPage /></Suspense>} />
               <Route path="*" element={
                 <div className="flex flex-col items-center justify-center h-[60vh]">
@@ -68,6 +76,7 @@ function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
+      <Toaster position="top-right" richColors closeButton duration={4000} />
     </AuthProvider>
   )
 }

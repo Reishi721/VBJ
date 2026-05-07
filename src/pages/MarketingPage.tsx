@@ -27,7 +27,10 @@ export default function MarketingPage() {
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState(emptyForm);
+  const [form, setForm] = useState<{
+    name: string; phone: string; email: string;
+    position: string; status: Marketing["status"];
+  }>(emptyForm);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
   const filtered = useMemo(() => 
@@ -41,10 +44,6 @@ export default function MarketingPage() {
   const activeCount = marketings.filter((m) => m.status === "active").length;
 
   const openCreate = () => { setForm(emptyForm); setEditingId(null); setShowForm(true); };
-  const openEdit = (m: Marketing) => {
-    setForm({ name: m.name, phone: m.phone, email: m.email, position: m.position, status: m.status });
-    setEditingId(m.id); setShowForm(true);
-  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
