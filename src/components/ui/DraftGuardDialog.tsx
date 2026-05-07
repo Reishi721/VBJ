@@ -1,5 +1,4 @@
 import { FileText, Trash2, ArrowLeft } from "lucide-react";
-import { Button } from "./Button";
 
 interface DraftGuardDialogProps {
   open: boolean;

@@ -1,20 +1,9 @@
-import { useState } from "react";
 import type { Invoice, Payment } from "../../types";
 import { Modal, Button } from "../ui";
 import { formatRupiah, InvoiceStatusBadge, PaymentProgress } from "./InvoiceHelpers";
-import { FileText, MapPin, CreditCard, Building2, Printer, FileSpreadsheet } from "lucide-react";
+import { MapPin, CreditCard, Building2, Printer } from "lucide-react";
 import InvoicePrintLayout from "./InvoicePrintLayout";
 
-// Helper: format durasi sewa (kelipatan 30 → tampil bulan)
-const isWholeMonths = (days: number) => days > 0 && days % 30 === 0;
-const formatDuration = (days?: number) => {
-  if (!days) return "—";
-  return isWholeMonths(days) ? `${days / 30} bln` : `${days} hari`;
-};
-const priceUnitLabel = (days?: number) => {
-  if (!days) return "";
-  return isWholeMonths(days) ? "/bln" : "/hari";
-};
 
 interface Props { invoice: Invoice; payments: Payment[]; onClose: () => void; onAddPayment: () => void; }
 

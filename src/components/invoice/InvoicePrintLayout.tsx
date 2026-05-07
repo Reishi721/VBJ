@@ -12,11 +12,6 @@ interface Props {
 const formatRupiahPrint = (val: number) =>
   new Intl.NumberFormat("id-ID", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val);
 
-const formatPriceUnit = (days?: number) => {
-  if (!days) return "/ hari";
-  return (days % 30 === 0) ? "/ bln" : "/ hari";
-};
-
 const terbilang = (angka: number): string => {
   const bilangan = [
     "", "satu", "dua", "tiga", "empat", "lima", "enam", "tujuh", "delapan", "sembilan", "sepuluh", "sebelas"

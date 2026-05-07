@@ -224,3 +224,45 @@ export interface StockLog {
   createdBy?: string;
   createdAt: string;
 }
+
+// ─── Delivery List (Daftar Kebutuhan Pengiriman) ─────────────────────────────
+
+export interface DeliveryListItem {
+  id: string;
+  deliveryListId: string;
+  inventoryId?: string;
+  inventoryCode: string;
+  inventoryName: string;
+  unit: string;
+  qtyNeeded: number;       // total qty dibutuhkan
+  qtySent: number;          // total qty sudah dikirim
+}
+
+export interface DeliveryListShipment {
+  id: string;
+  deliveryListId: string;
+  deliveryListItemId: string;
+  suratJalanId: string;
+  suratJalanNumber: string;
+  qtyShipped: number;
+  shipDate: string;
+  createdAt: string;
+}
+
+export type DeliveryListStatus = "active" | "completed" | "cancelled";
+
+export interface DeliveryList {
+  id: string;
+  customerId: string;
+  customerName: string;
+  projectId?: string;
+  projectName?: string;
+  title: string;            // e.g. "Order 50 Set Frame 170"
+  orderQty: number;         // jumlah set yang dipesan
+  unitLabel: string;        // "set", "paket", etc.
+  status: DeliveryListStatus;
+  notes?: string;
+  items: DeliveryListItem[];
+  shipments: DeliveryListShipment[];
+  createdAt: string;
+}

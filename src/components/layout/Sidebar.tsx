@@ -1,6 +1,6 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
-  LayoutDashboard, Users, Truck, Package, ClipboardList,
+  LayoutDashboard, Users, Truck, Package, ClipboardList, ClipboardCheck,
   DollarSign, BarChart3, Settings, ChevronRight, Blocks,
   UserCheck, FileText, LogOut, ShoppingCart, Wallet
 } from "lucide-react";
@@ -19,6 +19,7 @@ const navItems = [
   { name: "Dashboard",       href: "/",            icon: LayoutDashboard, group: "main" },
   { name: "Pelanggan",       href: "/customers",   icon: Users,           group: "main" },
   { name: "Marketing",       href: "/marketing",   icon: UserCheck,       group: "main" },
+  { name: "Daftar Kebutuhan",href: "/delivery-lists", icon: ClipboardCheck, group: "operations" },
   { name: "Surat Jalan",     href: "/surat-jalan",      icon: Truck,          group: "operations" },
   { name: "Inventaris",      href: "/inventory",        icon: Package,        group: "operations" },
   { name: "Purchase Order",  href: "/purchase-orders",  icon: ShoppingCart,   group: "operations" },
