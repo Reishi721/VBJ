@@ -52,7 +52,7 @@ const fetchProfileSafe = async (userId: string): Promise<UserProfile> => {
         .from("profiles")
         .select("id, full_name, avatar_url, role, is_active, phone")
         .eq("id", userId)
-        .single(),
+        .maybeSingle(),
       new Promise<{ data: null; error: Error }>((resolve) =>
         setTimeout(() => resolve({ data: null, error: new Error("timeout") }), 5000)
       ),
@@ -71,9 +71,9 @@ const fetchProfileSafe = async (userId: string): Promise<UserProfile> => {
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [session, setSession]   = useState<Session | null>(null);
-  const [profile, setProfile]   = useState<UserProfile | null>(null);
-  const [loading, setLoading]   = useState(true);
+  const [session, setSession] = useState<Session | null>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
 
   // Hard safety net: jika tidak ada event sama sekali dalam 4 detik, buka UI
   const safetyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -192,8 +192,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile(null);
   };
 
-  const role             = profile?.role ?? "staff";
-  const isAdmin          = role === "admin";
+  const role = profile?.role ?? "staff";
+  const isAdmin = role === "admin";
   const isManagerOrAbove = role === "admin" || role === "manager";
 
   return (

@@ -92,7 +92,7 @@ type DLInput = {
   unitLabel: string;
   status: DeliveryList["status"];
   notes?: string;
-  items: Omit<DeliveryListItem, "id" | "deliveryListId">[];
+  items: (Omit<DeliveryListItem, "id" | "deliveryListId"> & { id?: string })[];
 };
 
 const orNull = (v?: string) => (v && v.trim() !== "" ? v.trim() : null);
@@ -158,21 +158,39 @@ export function useUpdateDeliveryList() {
       if (error) throw error;
 
       if (input.items !== undefined) {
-        // Delete old items first
-        await supabase.from("delivery_list_items").delete().eq("delivery_list_id", id);
-        if (input.items.length > 0) {
-          const { error: iErr } = await supabase.from("delivery_list_items").insert(
-            input.items.map(i => ({
+        // Selective update to avoid wiping out delivery_list_shipments ON DELETE CASCADE
+        const { data: existing } = await supabase.from("delivery_list_items").select("id").eq("delivery_list_id", id);
+        const existingIds = existing?.map((i: any) => i.id) || [];
+        const idsToKeep = input.items.filter(i => i.id).map(i => i.id as string);
+        const idsToDelete = existingIds.filter((eid: string) => !idsToKeep.includes(eid));
+
+        if (idsToDelete.length > 0) {
+          await supabase.from("delivery_list_items").delete().in("id", idsToDelete);
+        }
+
+        for (const item of input.items) {
+          if (item.id) {
+            const { error: updErr } = await supabase.from("delivery_list_items").update({
+              inventory_id:     item.inventoryId || null,
+              inventory_code:   item.inventoryCode,
+              inventory_name:   item.inventoryName,
+              unit:             item.unit,
+              qty_needed:       item.qtyNeeded,
+              // Note: qty_sent is intentionally NOT updated here to preserve shipment integrity
+            }).eq("id", item.id);
+            if (updErr) throw updErr;
+          } else {
+            const { error: insErr } = await supabase.from("delivery_list_items").insert({
               delivery_list_id: id,
-              inventory_id:     i.inventoryId || null,
-              inventory_code:   i.inventoryCode,
-              inventory_name:   i.inventoryName,
-              unit:             i.unit,
-              qty_needed:       i.qtyNeeded,
-              qty_sent:         i.qtySent || 0,
-            }))
-          );
-          if (iErr) throw iErr;
+              inventory_id:     item.inventoryId || null,
+              inventory_code:   item.inventoryCode,
+              inventory_name:   item.inventoryName,
+              unit:             item.unit,
+              qty_needed:       item.qtyNeeded,
+              qty_sent:         item.qtySent || 0,
+            });
+            if (insErr) throw insErr;
+          }
         }
       }
     },

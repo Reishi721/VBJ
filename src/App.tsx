@@ -12,12 +12,15 @@ const MarketingPage   = lazy(() => import('./pages/MarketingPage'))
 const CustomerPage    = lazy(() => import('./pages/CustomerPage'))
 const InventoryPage   = lazy(() => import('./pages/InventoryPage'))
 const SuratJalanPage  = lazy(() => import('./pages/SuratJalanPage'))
+const DriversPage    = lazy(() => import('./pages/DriversPage'))
+const HelpersPage    = lazy(() => import('./pages/HelpersPage'))
 const DeliveryListPage = lazy(() => import('./pages/DeliveryListPage'))
 const InvoicePage     = lazy(() => import('./pages/InvoicePage'))
 const SettingsPage    = lazy(() => import('./pages/SettingsPage'))
 const RentalRecapPage = lazy(() => import('./pages/RentalRecapPage'))
 const ReportsPage     = lazy(() => import('./pages/ReportsPage'))
 const ReceivablesReportPage = lazy(() => import('./pages/ReceivablesReportPage'))
+const RitaseRecapPage = lazy(() => import('./pages/RitaseRecapPage'))
 
 // ─── Loading fallback ─────────────────────────────────────────────────────────
 function PageLoader() {
@@ -57,11 +60,14 @@ function App() {
               <Route path="customers" element={<Suspense fallback={<PageLoader />}><CustomerPage /></Suspense>} />
               <Route path="inventory" element={<Suspense fallback={<PageLoader />}><InventoryPage /></Suspense>} />
               <Route path="surat-jalan" element={<Suspense fallback={<PageLoader />}><SuratJalanPage /></Suspense>} />
+              <Route path="drivers" element={<Suspense fallback={<PageLoader />}><DriversPage /></Suspense>} />
+              <Route path="helpers" element={<Suspense fallback={<PageLoader />}><HelpersPage /></Suspense>} />
               <Route path="delivery-lists" element={<Suspense fallback={<PageLoader />}><DeliveryListPage /></Suspense>} />
               <Route path="invoice"          element={<Suspense fallback={<PageLoader />}><InvoicePage /></Suspense>} />
               <Route path="finance"          element={<Suspense fallback={<PageLoader />}><FinancePage /></Suspense>} />
               <Route path="purchase-orders" element={<Suspense fallback={<PageLoader />}><PurchaseOrderPage /></Suspense>} />
               <Route path="rekapan" element={<Suspense fallback={<PageLoader />}><RentalRecapPage /></Suspense>} />
+              <Route path="ritase" element={<Suspense fallback={<PageLoader />}><RitaseRecapPage /></Suspense>} />
               <Route path="reports" element={<Suspense fallback={<PageLoader />}><ReportsPage /></Suspense>} />
               <Route path="piutang" element={<Suspense fallback={<PageLoader />}><ReceivablesReportPage /></Suspense>} />
               <Route path="settings" element={<Suspense fallback={<PageLoader />}><SettingsPage /></Suspense>} />

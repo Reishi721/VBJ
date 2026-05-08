@@ -6,7 +6,82 @@ import type { CompanySettings, InvoiceSettings, BankAccount } from "../stores/us
 export const settingsKeys = {
   company: ["company_settings"] as const,
   banks: ["bank_accounts"] as const,
+  sjTypes: ["surat_jalan_types"] as const,
 };
+
+// ─── Surat Jalan Types ───
+export interface SuratJalanType {
+  id: string;
+  name: string;
+  prefix: string;
+}
+
+export function useSuratJalanTypes() {
+  const qc = useQueryClient();
+  const query = useQuery({
+    queryKey: settingsKeys.sjTypes,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("surat_jalan_types").select("*").order("created_at", { ascending: true });
+      if (error) throw error;
+      return (data ?? []).map((t: any) => ({
+        id: t.id,
+        name: t.name,
+        prefix: t.prefix,
+      })) as SuratJalanType[];
+    },
+  });
+
+  useEffect(() => {
+    const ch = supabase
+      .channel(`sj_types_${Math.random().toString(36).slice(2)}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "surat_jalan_types" },
+        () => qc.invalidateQueries({ queryKey: settingsKeys.sjTypes }))
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [qc]);
+
+  return query;
+}
+
+export function useAddSuratJalanType() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: SuratJalanType) => {
+      const { error } = await supabase.from("surat_jalan_types").insert({
+        id: input.id,
+        name: input.name,
+        prefix: input.prefix,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: settingsKeys.sjTypes }),
+  });
+}
+
+export function useUpdateSuratJalanType() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, input }: { id: string; input: Partial<SuratJalanType> }) => {
+      const { error } = await supabase.from("surat_jalan_types").update({
+        name: input.name,
+        prefix: input.prefix,
+      }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: settingsKeys.sjTypes }),
+  });
+}
+
+export function useDeleteSuratJalanType() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("surat_jalan_types").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: settingsKeys.sjTypes }),
+  });
+}
 
 // ─── Bank Accounts ───
 async function fetchBanks(): Promise<BankAccount[]> {
@@ -128,7 +203,7 @@ export function useCompanySettings() {
 export function useUpdateCompanySettings() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, company, invoice }: { id: string; company?: Partial<CompanySettings>; invoice?: Partial<InvoiceSettings> }) => {
+    mutationFn: async ({ id, company, invoice }: { id?: string; company?: Partial<CompanySettings>; invoice?: Partial<InvoiceSettings> }) => {
       const updatePayload: any = {};
       if (company) {
         if (company.name !== undefined) updatePayload.name = company.name;
@@ -146,8 +221,13 @@ export function useUpdateCompanySettings() {
       }
 
       if (Object.keys(updatePayload).length > 0) {
-        const { error } = await supabase.from("company_settings").update(updatePayload).eq("id", id);
-        if (error) throw error;
+        if (id) {
+          const { error } = await supabase.from("company_settings").update(updatePayload).eq("id", id);
+          if (error) throw error;
+        } else {
+          const { error } = await supabase.from("company_settings").insert(updatePayload);
+          if (error) throw error;
+        }
       }
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: settingsKeys.company }),

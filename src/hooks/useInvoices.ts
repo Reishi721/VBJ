@@ -131,20 +131,19 @@ export function useAddInvoice() {
     mutationFn: async (input: InvoiceInput) => {
       let numberToUse = input.number;
       if (!numberToUse || numberToUse.trim() === "") {
-        // Generate nomor invoice secara atomic via PostgreSQL sequence
-        const { data: numberData, error: numErr } = await supabase
-          .rpc("generate_invoice_number");
-        if (numErr) {
-          // Fallback: client-side generation jika fungsi belum di-deploy
-          const { data: lastInv } = await supabase
-            .from("invoices").select("number").order("created_at", { ascending: false }).limit(1).single();
-          const year   = new Date().getFullYear();
-          const lastNo = lastInv?.number?.match(/\d+$/)?.[0] ?? "0";
-          const nextNo = String(parseInt(lastNo) + 1).padStart(3, "0");
-          numberToUse = `INV-${year}-${nextNo}`;
-        } else {
-          numberToUse = numberData as string;
-        }
+        // Custom generation format: Inv-00001
+        const { data: lastInv } = await supabase
+          .from("invoices")
+          .select("number")
+          .ilike("number", `Inv-%`)
+          .order("number", { ascending: false })
+          .limit(1)
+          .single();
+        
+        const lastNoStr = lastInv?.number?.split('-').pop() ?? "0";
+        const parsedNo = parseInt(lastNoStr);
+        const nextNo = String((isNaN(parsedNo) ? 0 : parsedNo) + 1).padStart(5, "0");
+        numberToUse = `Inv-${nextNo}`;
       }
 
       const { error } = await supabase.from("invoices").insert({

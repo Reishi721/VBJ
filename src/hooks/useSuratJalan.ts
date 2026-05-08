@@ -15,34 +15,80 @@ export const sjKeys = {
 async function fetchSuratJalan(): Promise<SuratJalan[]> {
   const { data, error } = await supabase
     .from("surat_jalan")
-    .select("*, items:surat_jalan_items(*)")
+    .select("*, items:surat_jalan_items(*), helpers:surat_jalan_helpers(*)")
     .order("created_at", { ascending: false });
   if (error) throw error;
 
-  return (data ?? []).map((r: any): SuratJalan => ({
-    id:              r.id,
-    number:          r.number,
-    type:            r.type,
-    date:            r.date,
-    customerId:      r.customer_id,
-    customerName:    r.customer_name,
-    projectId:       r.project_id,
-    projectName:     r.project_name,
-    recipientName:   r.recipient_name,
-    recipientPhone:  r.recipient_phone,
+  type SJItemRow = {
+    inventory_id: string | null;
+    inventory_code: string;
+    inventory_name: string;
+    unit: string;
+    qty: number;
+    note?: string | null;
+  };
+
+  type SJHelperRow = {
+    helper_id?: string | null;
+    helper_name: string;
+    role?: string | null;
+  };
+
+  type SJRow = {
+    id: string;
+    number: string;
+    type: SuratJalan["type"];
+    date: string;
+    customer_id: string;
+    customer_name: string;
+    project_id?: string | null;
+    project_name?: string | null;
+    recipient_name: string;
+    recipient_phone?: string | null;
+    delivery_address: string;
+    driver_id?: string | null;
+    ritase_supir?: number | null;
+    driver_name?: string | null;
+    vehicle_plate?: string | null;
+    status: SuratJalan["status"];
+    notes?: string | null;
+    created_at: string;
+    items?: SJItemRow[];
+    helpers?: SJHelperRow[];
+  };
+
+  const rows = (data ?? []) as SJRow[];
+  return rows.map((r): SuratJalan => ({
+    id: r.id,
+    number: r.number,
+    type: r.type,
+    date: r.date,
+    customerId: r.customer_id,
+    customerName: r.customer_name,
+    projectId: r.project_id ?? undefined,
+    projectName: r.project_name ?? undefined,
+    recipientName: r.recipient_name,
+    recipientPhone: r.recipient_phone ?? undefined,
     deliveryAddress: r.delivery_address,
-    driverName:      r.driver_name ?? "",
-    vehiclePlate:    r.vehicle_plate ?? "",
-    status:          r.status,
-    notes:           r.notes,
-    createdAt:       r.created_at,
-    items: (r.items ?? []).map((i: any): SuratJalanItem => ({
-      inventoryId:   i.inventory_id,
+    driverId: r.driver_id ?? undefined,
+    ritaseSupir: r.ritase_supir !== null && r.ritase_supir !== undefined ? Number(r.ritase_supir) : 1,
+    driverName: r.driver_name ?? "",
+    vehiclePlate: r.vehicle_plate ?? "",
+    status: r.status,
+    notes: r.notes ?? undefined,
+    createdAt: r.created_at,
+    helpers: (r.helpers ?? []).map((h) => ({
+      helperId: h.helper_id ?? undefined,
+      helperName: h.helper_name,
+      role: h.role ?? undefined,
+    })),
+    items: (r.items ?? []).map((i): SuratJalanItem => ({
+      inventoryId: i.inventory_id ?? "",
       inventoryCode: i.inventory_code,
       inventoryName: i.inventory_name,
-      unit:          i.unit,
-      qty:           i.qty,
-      note:          i.note,
+      unit: i.unit,
+      qty: i.qty,
+      note: i.note ?? undefined,
     })),
   }));
 }
@@ -57,6 +103,8 @@ export function useSuratJalan() {
       .on("postgres_changes", { event: "*", schema: "public", table: "surat_jalan" },
         () => qc.invalidateQueries({ queryKey: sjKeys.all }))
       .on("postgres_changes", { event: "*", schema: "public", table: "surat_jalan_items" },
+        () => qc.invalidateQueries({ queryKey: sjKeys.all }))
+      .on("postgres_changes", { event: "*", schema: "public", table: "surat_jalan_helpers" },
         () => qc.invalidateQueries({ queryKey: sjKeys.all }))
       .subscribe();
     return () => { supabase.removeChannel(ch); };
@@ -75,20 +123,34 @@ export function useAddSuratJalan() {
     mutationFn: async (input: SJInput) => {
       let numberToUse = input.number;
       if (!numberToUse || numberToUse.trim() === "") {
-        // Auto-generate number secara atomic via PostgreSQL sequence
-        const { data: numberData, error: numErr } = await supabase
-          .rpc("generate_surat_jalan_number");
-        if (numErr) {
-          // Fallback: client-side generation jika fungsi belum di-deploy
-          const { data: lastSj } = await supabase
-            .from("surat_jalan").select("number").order("created_at", { ascending: false }).limit(1).single();
-          const year = new Date().getFullYear();
-          const lastNo = lastSj?.number?.match(/\d+$/)?.[0] ?? "0";
-          const nextNo = String(parseInt(lastNo) + 1).padStart(3, "0");
-          numberToUse = `SJ-${year}-${nextNo}`;
-        } else {
-          numberToUse = numberData as string;
-        }
+        const yearYY = new Date().getFullYear().toString().slice(-2);
+        let typePrefix = input.type === "pengembalian" ? "3" : "2";
+        
+        try {
+          const { data: typeData } = await supabase
+            .from("surat_jalan_types")
+            .select("prefix")
+            .eq("id", input.type)
+            .single();
+          if (typeData?.prefix) {
+            typePrefix = typeData.prefix;
+          }
+        } catch (e) {}
+
+        const fullPrefix = `${typePrefix}${yearYY}`; // e.g. 226
+
+        const { data: lastSj } = await supabase
+          .from("surat_jalan")
+          .select("number")
+          .like("number", `${fullPrefix}%`)
+          .order("number", { ascending: false })
+          .limit(1)
+          .single();
+          
+        const lastNoStr = lastSj?.number?.slice(fullPrefix.length) ?? "0";
+        const parsedNo = parseInt(lastNoStr);
+        const nextNo = String((isNaN(parsedNo) ? 0 : parsedNo) + 1).padStart(5, "0");
+        numberToUse = `${fullPrefix}${nextNo}`;
       }
 
       const { data, error } = await supabase.from("surat_jalan").insert({
@@ -102,7 +164,9 @@ export function useAddSuratJalan() {
         recipient_name:   input.recipientName,
         recipient_phone:  orNull(input.recipientPhone),
         delivery_address: input.deliveryAddress,
+        driver_id:       orNull(input.driverId),
         driver_name:      input.driverName?.trim() || "",
+        ritase_supir:     input.ritaseSupir ?? 1,
         vehicle_plate:    input.vehiclePlate?.trim() || "",
         status:           input.status,
         notes:            orNull(input.notes),
@@ -122,6 +186,69 @@ export function useAddSuratJalan() {
           }))
         );
         if (iErr) throw iErr;
+
+        // --- AUTOMATED DELIVERY LIST DEDUCTION ---
+        if (input.type === "pengiriman" && input.customerId) {
+          const { data: activeDLs } = await supabase
+            .from("delivery_lists")
+            .select("id, items:delivery_list_items(id, inventory_id, qty_needed, qty_sent)")
+            .eq("customer_id", input.customerId)
+            .eq("status", "active");
+
+          if (activeDLs && activeDLs.length > 0) {
+            for (const sjItem of input.items) {
+              if (!sjItem.inventoryId || sjItem.qty <= 0) continue;
+              let remainingSjQty = sjItem.qty;
+              
+              for (const dl of activeDLs) {
+                if (remainingSjQty <= 0) break;
+                
+                const dlItems = (dl.items as any[]).filter(i => 
+                  i.inventory_id === sjItem.inventoryId && i.qty_needed > i.qty_sent
+                );
+
+                for (const dli of dlItems) {
+                  if (remainingSjQty <= 0) break;
+                  
+                  const needed = dli.qty_needed - dli.qty_sent;
+                  const qtyToDeduct = Math.min(remainingSjQty, needed);
+                  
+                  // Create shipment link
+                  await supabase.from("delivery_list_shipments").insert({
+                    delivery_list_id: dl.id,
+                    delivery_list_item_id: dli.id,
+                    surat_jalan_id: data.id,
+                    surat_jalan_number: numberToUse,
+                    qty_shipped: qtyToDeduct,
+                    ship_date: input.date
+                  });
+                  
+                  // Update qty_sent in database and memory
+                  const newQtySent = dli.qty_sent + qtyToDeduct;
+                  dli.qty_sent = newQtySent;
+                  await supabase.from("delivery_list_items")
+                    .update({ qty_sent: newQtySent })
+                    .eq("id", dli.id);
+                  
+                  remainingSjQty -= qtyToDeduct;
+                }
+              }
+            }
+          }
+        }
+        // ------------------------------------------
+      }
+
+      if ((input.helpers?.length ?? 0) > 0) {
+        const { error: hErr } = await supabase.from("surat_jalan_helpers").insert(
+          (input.helpers ?? []).map((h) => ({
+            surat_jalan_id: data.id,
+            helper_id: h.helperId ? h.helperId : null,
+            helper_name: h.helperName,
+            role: h.role ?? null,
+          }))
+        );
+        if (hErr) throw hErr;
       }
       return data;
     },
@@ -137,7 +264,7 @@ export function useUpdateSuratJalan() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, input }: { id: string; input: Partial<SJInput> }) => {
-      const updatePayload: any = {
+      const updatePayload: Record<string, unknown> = {
         type:             input.type,
         date:             input.date,
         customer_id:      input.customerId,
@@ -154,6 +281,13 @@ export function useUpdateSuratJalan() {
       };
       if (input.number) {
         updatePayload.number = input.number;
+      }
+
+      if (input.driverId !== undefined) {
+        updatePayload.driver_id = orNull(input.driverId);
+      }
+      if (input.ritaseSupir !== undefined) {
+        updatePayload.ritase_supir = input.ritaseSupir ?? 1;
       }
 
       const { error } = await supabase.from("surat_jalan").update(updatePayload).eq("id", id);
@@ -174,6 +308,21 @@ export function useUpdateSuratJalan() {
             }))
           );
           if (iErr) throw iErr;
+        }
+      }
+
+      if (input.helpers !== undefined) {
+        await supabase.from("surat_jalan_helpers").delete().eq("surat_jalan_id", id);
+        if ((input.helpers ?? []).length > 0) {
+          const { error: hErr } = await supabase.from("surat_jalan_helpers").insert(
+            (input.helpers ?? []).map((h) => ({
+              surat_jalan_id: id,
+              helper_id: h.helperId ? h.helperId : null,
+              helper_name: h.helperName,
+              role: h.role ?? null,
+            }))
+          );
+          if (hErr) throw hErr;
         }
       }
     },

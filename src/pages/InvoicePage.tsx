@@ -303,7 +303,13 @@ export default function InvoicePage() {
                 <Select label="Proyek (Opsional)" placeholder="Pilih proyek..." value={form.projectId}
                   onChange={val => {
                     const proj = selectedCustomer?.projects.find(p => p.id === val);
-                    setForm(f => ({ ...f, projectId: val, projectName: proj?.name || "" }));
+                    setForm(f => ({ 
+                      ...f, 
+                      projectId: val, 
+                      projectName: proj?.name || "",
+                      upName: proj?.recipientName || f.upName || "",
+                      upPhone: proj?.recipientPhone || f.upPhone || ""
+                    }));
                   }}
                   options={[{ value: "", label: "— Tanpa Proyek —" }, ...projectOptions]} />
               )}

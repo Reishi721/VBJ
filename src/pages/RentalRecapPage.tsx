@@ -35,8 +35,11 @@ function RecapPrintView({ recap }: { recap: RentalRecap }) {
         (!recap.projectId || sj.projectId === recap.projectId) &&
         sj.status !== "cancelled"
     );
-    const sortByDate = (a: typeof related[0], b: typeof related[0]) =>
-      new Date(a.date).getTime() - new Date(b.date).getTime();
+    const sortByDate = (a: typeof related[0], b: typeof related[0]) => {
+      const dateDiff = new Date(a.date).getTime() - new Date(b.date).getTime();
+      if (dateDiff !== 0) return dateDiff;
+      return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    };
     return {
       pengiriman: related.filter((s) => s.type === "pengiriman").sort(sortByDate),
       pengembalian: related.filter((s) => s.type === "pengembalian").sort(sortByDate),
@@ -104,7 +107,7 @@ function RecapPrintView({ recap }: { recap: RentalRecap }) {
             <tr key={sj.id}>
               <td className="border border-black p-1 text-center">{idx + 1}</td>
               <td className="border border-black p-1 text-center">{sj.date}</td>
-              <td className="border border-black p-1 text-center">{sj.number}</td>
+              <td className="border border-black p-1 text-center">{sj.number.length > 3 ? sj.number.substring(3) : sj.number}</td>
               {cols.map((col) => {
                 const q = colQty(sj.id, col);
                 return <td key={col.id} className="border border-black p-1 text-center">{q || ""}</td>;
@@ -118,7 +121,7 @@ function RecapPrintView({ recap }: { recap: RentalRecap }) {
             <tr key={sj.id}>
               <td className="border border-black p-1 text-center">{idx + 1}</td>
               <td className="border border-black p-1 text-center">{sj.date}</td>
-              <td className="border border-black p-1 text-center">{sj.number}</td>
+              <td className="border border-black p-1 text-center">{sj.number.length > 3 ? sj.number.substring(3) : sj.number}</td>
               {cols.map((col) => {
                 const q = colQty(sj.id, col);
                 return <td key={col.id} className="border border-black p-1 text-center text-red-600">{q ? `(${q})` : ""}</td>;
@@ -155,8 +158,11 @@ function RecapDetailModal({ recap, onClose, onManageCols }: {
         (!recap.projectId || sj.projectId === recap.projectId) &&
         sj.status !== "cancelled"
     );
-    const sortByDate = (a: typeof related[0], b: typeof related[0]) =>
-      new Date(a.date).getTime() - new Date(b.date).getTime();
+    const sortByDate = (a: typeof related[0], b: typeof related[0]) => {
+      const dateDiff = new Date(a.date).getTime() - new Date(b.date).getTime();
+      if (dateDiff !== 0) return dateDiff;
+      return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    };
     return {
       pengiriman: related.filter((s) => s.type === "pengiriman").sort(sortByDate),
       pengembalian: related.filter((s) => s.type === "pengembalian").sort(sortByDate),
@@ -272,7 +278,7 @@ function RecapDetailModal({ recap, onClose, onManageCols }: {
                   <tr key={sj.id} className="hover:bg-gray-50/50">
                     <td className="px-3 py-2 text-gray-400">{idx + 1}</td>
                     <td className="px-3 py-2 text-gray-600">{sj.date}</td>
-                    <td className="px-3 py-2 font-mono text-blue-600 text-[11px]">{sj.number}</td>
+                    <td className="px-3 py-2 font-mono text-blue-600 text-[11px]">{sj.number.length > 3 ? sj.number.substring(3) : sj.number}</td>
                     {cols.map((col) => {
                       const q = colQty(sj.id, col);
                       return (
@@ -297,7 +303,7 @@ function RecapDetailModal({ recap, onClose, onManageCols }: {
                   <tr key={sj.id} className="hover:bg-gray-50/50">
                     <td className="px-3 py-2 text-gray-400">{idx + 1}</td>
                     <td className="px-3 py-2 text-gray-600">{sj.date}</td>
-                    <td className="px-3 py-2 font-mono text-orange-600 text-[11px]">{sj.number}</td>
+                    <td className="px-3 py-2 font-mono text-orange-600 text-[11px]">{sj.number.length > 3 ? sj.number.substring(3) : sj.number}</td>
                     {cols.map((col) => {
                       const q = colQty(sj.id, col);
                       return (

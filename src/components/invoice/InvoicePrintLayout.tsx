@@ -2,6 +2,7 @@ import { forwardRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import type { Invoice } from "../../types";
 import { useCompanySettings, useBanks } from "../../hooks/useSettings";
+import { useCustomers } from "../../hooks/useCustomers";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
 
@@ -42,8 +43,13 @@ const terbilang = (angka: number): string => {
 const InvoicePrintLayout = forwardRef<HTMLDivElement, Props>(({ invoice }, ref) => {
   const { data: settingsData } = useCompanySettings();
   const { data: banks = [] } = useBanks();
+  const { data: customers = [] } = useCustomers();
+  
   const company = settingsData?.company || { name: "", tagline: "", addressLine1: "", addressLine2: "", phone: "", fax: "", logoUrl: "" };
   const invSettings = settingsData?.invoice || { remarks: "", managerName: "", managerTitle: "" };
+
+  const customer = useMemo(() => customers.find(c => c.id === invoice.customerId), [customers, invoice.customerId]);
+  const project = useMemo(() => customer?.projects?.find(p => p.id === invoice.projectId), [customer, invoice.projectId]);
 
   const formattedDate = format(new Date(invoice.date), "dd MMMM yyyy", { locale: id });
   const useDateStart = format(new Date(invoice.date), "dd MMMM yyyy", { locale: id });
@@ -69,7 +75,7 @@ const InvoicePrintLayout = forwardRef<HTMLDivElement, Props>(({ invoice }, ref) 
 
         {/* Company Info */}
         <div className="flex flex-col justify-center">
-          <h1 className="text-[25px] font-black font-bold uppercase tracking-wide">{company.name}</h1>
+          <h1 style={{ fontFamily: '"Rockwell Extra Bold", Rockwell, serif' }} className="text-[25px] font-black font-bold uppercase tracking-wide">{company.name}</h1>
           <h2 className="text-[18px] font-bold uppercase">{company.tagline}</h2>
           <p>{company.addressLine1}</p>
           <p>Telp : {company.phone}</p>
@@ -94,7 +100,7 @@ const InvoicePrintLayout = forwardRef<HTMLDivElement, Props>(({ invoice }, ref) 
               <tr>
                 <td className="w-16 align-top">Proyek</td>
                 <td className="w-4 align-top">:</td>
-                <td className="align-top">{invoice.projectName || "—"}</td>
+                <td className="align-top">{project?.location || invoice.projectName || "—"}</td>
               </tr>
               <tr>
                 <td className="align-top">Up</td>

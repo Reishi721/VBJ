@@ -3,6 +3,8 @@ import { useDraftGuard } from "../hooks/useDraftGuard";
 import { useSuratJalan, useAddSuratJalan, useUpdateSuratJalan, useDeleteSuratJalan, useUpdateSJStatus } from "../hooks/useSuratJalan";
 import { useCustomers } from "../hooks/useCustomers";
 import { useInventoryItems } from "../hooks/useInventory";
+import { useDrivers } from "../hooks/useDrivers";
+import { useHelpers } from "../hooks/useHelpers";
 import type { SuratJalan, SuratJalanItem } from "../types";
 import { Plus, Pencil, Trash2, Eye, Truck, FileText, CheckCircle2, XCircle, Clock, Send, MapPin, User, Phone, Printer } from "lucide-react";
 import SuratJalanPrintModal from "../components/surat-jalan/SuratJalanPrintModal";
@@ -34,7 +36,11 @@ const emptyForm = {
   date: new Date().toISOString().split("T")[0],
   type: "pengiriman" as SuratJalan["type"],
   recipientName: "", recipientPhone: "", deliveryAddress: "",
-  driverName: "", vehiclePlate: "",
+  driverId: "",
+  driverName: "",
+  ritaseSupir: 1,
+  vehiclePlate: "",
+  helpers: [{ helperId: "", helperName: "" }],
   status: "sent" as SuratJalan["status"],
   notes: "", items: [{ ...emptyLineItem }],
 };
@@ -136,6 +142,8 @@ export default function SuratJalanPage() {
   const { data: suratJalans = [] } = useSuratJalan();
   const { data: customers = [] } = useCustomers();
   const { data: inventoryItems = [] } = useInventoryItems();
+  const { data: drivers = [] } = useDrivers();
+  const { data: helpers = [] } = useHelpers();
 
   const { mutate: addSuratJalan } = useAddSuratJalan();
   const { mutate: updateSuratJalan } = useUpdateSuratJalan();
@@ -166,6 +174,22 @@ export default function SuratJalanPage() {
       value: i.id, label: i.name, description: `${i.code} · Stok: ${i.stock} ${i.unit}`, meta: i.code
     })), [inventoryItems]);
 
+  const driverOptions = useMemo(() =>
+    drivers.map((d) => ({
+      value: d.id,
+      label: d.name,
+      description: d.phone ? `Telp: ${d.phone}` : undefined,
+    })), [drivers]);
+
+  const helperOptions = useMemo(() =>
+    helpers
+      .filter((h) => h.status === "active")
+      .map((h) => ({
+        value: h.id,
+        label: h.name,
+        description: h.phone ? `Telp: ${h.phone}` : undefined,
+      })), [helpers]);
+
   // ─ Filtered list ─
   const filtered = useMemo(() =>
     suratJalans.filter(sj => {
@@ -195,7 +219,13 @@ export default function SuratJalanPage() {
       date: sj.date, type: sj.type,
       recipientName: sj.recipientName,
       recipientPhone: sj.recipientPhone || "", deliveryAddress: sj.deliveryAddress,
-      driverName: sj.driverName, vehiclePlate: sj.vehiclePlate,
+      driverId: sj.driverId || "",
+      driverName: sj.driverName,
+      ritaseSupir: sj.ritaseSupir ?? 1,
+      vehiclePlate: sj.vehiclePlate,
+      helpers: (sj.helpers && sj.helpers.length > 0)
+        ? sj.helpers.map((h) => ({ helperId: h.helperId || "", helperName: h.helperName, role: h.role }))
+        : [{ helperId: "", helperName: "" }],
       status: sj.status, notes: sj.notes || "",
       items: sj.items.map(i => ({ ...i })),
     });
@@ -212,22 +242,27 @@ export default function SuratJalanPage() {
     e.preventDefault();
     const validItems = form.items.filter(i => i.inventoryId && i.qty > 0);
     if (!validItems.length) return alert("Tambahkan minimal 1 barang.");
-    if (editingId) updateSuratJalan({ id: editingId, input: { ...form, items: validItems } });
-    else addSuratJalan({ ...form, items: validItems });
+    const validHelpers = (form.helpers ?? []).filter((h) => h.helperId && h.helperName.trim() !== "");
+    if (!validHelpers.length) return alert("Pilih minimal 1 helper.");
+
+    const payload = { ...form, items: validItems, helpers: validHelpers };
+    if (editingId) updateSuratJalan({ id: editingId, input: payload });
+    else addSuratJalan(payload);
     closeFormAndReset();
   };
 
   const saveDraftCb = useCallback(async () => {
     const draftForm = { ...form, status: "draft" as SuratJalan["status"] };
     const validItems = draftForm.items.filter(i => i.inventoryId && i.qty > 0);
+    const validHelpers = (draftForm.helpers ?? []).filter((h) => h.helperId && h.helperName.trim() !== "");
     return new Promise<void>((resolve, reject) => {
       if (editingId) {
-        updateSuratJalan({ id: editingId, input: { ...draftForm, items: validItems } }, {
+        updateSuratJalan({ id: editingId, input: { ...draftForm, items: validItems, helpers: validHelpers } }, {
           onSuccess: () => { closeFormAndReset(); resolve(); },
           onError: reject,
         });
       } else {
-        addSuratJalan({ ...draftForm, items: validItems.length ? validItems : form.items }, {
+        addSuratJalan({ ...draftForm, items: validItems.length ? validItems : form.items, helpers: validHelpers }, {
           onSuccess: () => { closeFormAndReset(); resolve(); },
           onError: reject,
         });
@@ -459,6 +494,107 @@ export default function SuratJalanPage() {
                 onChange={e => setForm(f => ({ ...f, recipientName: e.target.value }))} />
               <TextInput label="No. Telepon" placeholder="Opsional" value={form.recipientPhone}
                 onChange={e => setForm(f => ({ ...f, recipientPhone: e.target.value }))} />
+            </div>
+          </div>
+
+          {/* Driver & Ritase Supir */}
+          <div className="space-y-3 p-4 rounded-xl bg-blue-50/50 border border-blue-100">
+            <p className="text-[12px] font-bold text-blue-700 uppercase tracking-wider">Pengemudi & Ritase</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <SearchSelect
+                label="Supir"
+                required
+                placeholder="Pilih supir..."
+                value={form.driverId ?? ""}
+                onChange={(val) => {
+                  const d = drivers.find((x) => x.id === val);
+                  setForm((f) => ({ ...f, driverId: val, driverName: d?.name || "" }));
+                }}
+                options={driverOptions}
+              />
+              <TextInput
+                label="Plat Kendaraan"
+                required
+                placeholder="Contoh: B 1234 ABC"
+                value={form.vehiclePlate}
+                onChange={(e) => setForm((f) => ({ ...f, vehiclePlate: e.target.value }))}
+              />
+            </div>
+            <TextInput
+              label="Ritase Supir"
+              type="number"
+              required
+              step={0.5}
+              min={0}
+              hint="Contoh: 0.5 / 1 / 2 (untuk kasus 2 SJ = 1 ritase)"
+              value={String(form.ritaseSupir ?? 1)}
+              onChange={(e) => {
+                const n = Number(e.target.value);
+                setForm((f) => ({ ...f, ritaseSupir: Number.isFinite(n) ? n : 1 }));
+              }}
+            />
+          </div>
+
+          {/* Helpers */}
+          <div className="space-y-3 p-4 rounded-xl bg-gray-50/80 border border-gray-100">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-[12px] font-bold text-gray-500 uppercase tracking-wider">Helper</p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                leftIcon={Plus}
+                onClick={() => {
+                  setForm((f) => ({
+                    ...f,
+                    helpers: [...(f.helpers ?? []), { helperId: "", helperName: "" }],
+                  }));
+                }}
+              >
+                Tambah Helper
+              </Button>
+            </div>
+
+            <div className="space-y-3">
+              {(form.helpers ?? []).map((h, idx) => (
+                <div key={idx} className="flex items-start gap-3">
+                  <div className="flex-1">
+                    <SearchSelect
+                      label={idx === 0 ? "Helper 1" : undefined}
+                      required={idx === 0}
+                      placeholder="Pilih helper..."
+                      value={h.helperId ?? ""}
+                      onChange={(val) => {
+                        const helper = helpers.find((x) => x.id === val);
+                        setForm((f) => ({
+                          ...f,
+                          helpers: (f.helpers ?? []).map((row, i) =>
+                            i === idx
+                              ? { ...row, helperId: val, helperName: helper?.name || "" }
+                              : row
+                          ),
+                        }));
+                      }}
+                      options={helperOptions}
+                    />
+                  </div>
+                  {form.helpers && form.helpers.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setForm((f) => ({
+                          ...f,
+                          helpers: (f.helpers ?? []).filter((_, i) => i !== idx),
+                        }));
+                      }}
+                      className="p-2 rounded-xl text-gray-300 hover:text-red-500 hover:bg-red-50 transition-all mt-7"
+                      title="Hapus helper"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
 

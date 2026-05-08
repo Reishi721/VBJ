@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
-import { useCompanySettings, useBanks, useUpdateCompanySettings, useAddBank, useUpdateBank, useDeleteBank } from "../hooks/useSettings";
+import { useCompanySettings, useBanks, useUpdateCompanySettings, useAddBank, useUpdateBank, useDeleteBank, useSuratJalanTypes, useAddSuratJalanType, useUpdateSuratJalanType, useDeleteSuratJalanType } from "../hooks/useSettings";
 import type { BankAccount, CompanySettings, InvoiceSettings } from "../stores/useSettingsStore";
 import { SectionHeader, Button, TextInput, Textarea, ConfirmDialog, Modal } from "../components/ui";
-import { Save, Plus, Trash2, Pencil, Landmark, Building2, FileText, Upload, Loader2, X } from "lucide-react";
+import { Save, Plus, Trash2, Pencil, Landmark, Building2, FileText, Upload, Loader2, X, FileSignature } from "lucide-react";
 import { supabase } from "../lib/supabase";
 
 export default function SettingsPage() {
@@ -36,11 +36,30 @@ export default function SettingsPage() {
   const [bankForm, setBankForm] = useState<Omit<BankAccount, "id">>({ bankName: "", accountNumber: "", accountName: "" });
   const [delBank, setDelBank] = useState<string | null>(null);
 
+  const { data: sjTypes = [] } = useSuratJalanTypes();
+  const { mutate: addSjType } = useAddSuratJalanType();
+  const { mutate: updateSjType } = useUpdateSuratJalanType();
+  const { mutate: deleteSjType } = useDeleteSuratJalanType();
+
+  // Surat Jalan Types Local State
+  const [showSjTypeForm, setShowSjTypeForm] = useState(false);
+  const [editingSjTypeId, setEditingSjTypeId] = useState<string | null>(null);
+  const [sjTypeForm, setSjTypeForm] = useState({ name: "", prefix: "" });
+  const [delSjType, setDelSjType] = useState<string | null>(null);
+
+  const handleSaveSjType = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingSjTypeId) {
+      updateSjType({ id: editingSjTypeId, input: sjTypeForm });
+    } else {
+      addSjType({ id: sjTypeForm.name.toLowerCase().replace(/\s+/g, "_"), ...sjTypeForm });
+    }
+    setShowSjTypeForm(false);
+  };
+
   const handleSaveCompany = (e: React.FormEvent) => {
     e.preventDefault();
-    if (settingsData?.id) {
-      updateSettings({ id: settingsData.id, company: cForm, invoice: invForm });
-    }
+    updateSettings({ id: settingsData?.id, company: cForm, invoice: invForm });
     alert("Pengaturan berhasil disimpan.");
   };
 
@@ -265,6 +284,29 @@ export default function SettingsPage() {
         )}
       </div>
 
+      {/* Surat Jalan Types Section */}
+      <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+        <div className="flex items-center justify-between mb-4 border-b pb-2">
+          <div className="flex items-center gap-2">
+            <FileSignature className="w-5 h-5 text-gray-500" />
+            <h3 className="font-bold text-lg text-gray-900">Tipe Surat Jalan & Prefix</h3>
+          </div>
+          <Button size="sm" variant="outline" leftIcon={Plus} onClick={() => { setSjTypeForm({ name: "", prefix: "" }); setEditingSjTypeId(null); setShowSjTypeForm(true); }}>Tambah Tipe</Button>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+          {sjTypes.map((t) => (
+            <div key={t.id} className="p-4 rounded-xl border border-gray-200 bg-gray-50 relative group">
+              <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button onClick={() => { setSjTypeForm({ name: t.name, prefix: t.prefix }); setEditingSjTypeId(t.id); setShowSjTypeForm(true); }} className="p-1.5 text-gray-400 hover:text-blue-600 rounded-md hover:bg-white shadow-sm"><Pencil className="w-3.5 h-3.5" /></button>
+                <button onClick={() => setDelSjType(t.id)} className="p-1.5 text-gray-400 hover:text-red-500 rounded-md hover:bg-white shadow-sm"><Trash2 className="w-3.5 h-3.5" /></button>
+              </div>
+              <p className="font-bold text-gray-900">{t.name}</p>
+              <p className="text-xs text-gray-500 mt-1">Prefix Penomoran: <span className="font-bold text-blue-600 ml-1">{t.prefix}</span></p>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* Bank Form Modal */}
       <Modal open={showBankForm} onClose={() => setShowBankForm(false)} title={editingBankId ? "Edit Rekening Bank" : "Tambah Rekening Bank"} size="sm">
         <form id="bank-form" onSubmit={handleSaveBank} className="space-y-4">
@@ -280,6 +322,21 @@ export default function SettingsPage() {
 
       <ConfirmDialog open={!!delBank} onClose={() => setDelBank(null)} title="Hapus Rekening?" 
         onConfirm={() => { if (delBank) deleteBank(delBank); setDelBank(null); }} />
+
+      {/* SJ Type Form Modal */}
+      <Modal open={showSjTypeForm} onClose={() => setShowSjTypeForm(false)} title={editingSjTypeId ? "Edit Tipe Surat Jalan" : "Tambah Tipe Surat Jalan"} size="sm">
+        <form id="sj-type-form" onSubmit={handleSaveSjType} className="space-y-4">
+          <TextInput label="Nama Tipe" required placeholder="Contoh: Pemindahan" value={sjTypeForm.name} onChange={e => setSjTypeForm({ ...sjTypeForm, name: e.target.value })} />
+          <TextInput label="Prefix Angka (1 Digit)" required placeholder="Contoh: 4" maxLength={1} value={sjTypeForm.prefix} onChange={e => setSjTypeForm({ ...sjTypeForm, prefix: e.target.value.replace(/\D/g, '') })} />
+        </form>
+        <div className="flex justify-end gap-3 mt-6">
+          <Button variant="outline" onClick={() => setShowSjTypeForm(false)}>Batal</Button>
+          <Button type="submit" form="sj-type-form">Simpan</Button>
+        </div>
+      </Modal>
+
+      <ConfirmDialog open={!!delSjType} onClose={() => setDelSjType(null)} title="Hapus Tipe Surat Jalan?" 
+        onConfirm={() => { if (delSjType) deleteSjType(delSjType); setDelSjType(null); }} />
     </div>
   );
 }

@@ -59,6 +59,25 @@ export interface InventoryItem {
   createdAt: string;
 }
 
+// ─── Supir & Helper ─────────────────────────────────────────────────────────
+export interface Driver {
+  id: string;
+  name: string;
+  phone?: string;
+  status: "active" | "inactive";
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Helper {
+  id: string;
+  name: string;
+  phone?: string;
+  status: "active" | "inactive";
+  createdAt: string;
+  updatedAt: string;
+}
+
 // ─── Surat Jalan ──────────────────────────────────────────────────────────────
 
 export interface SuratJalanItem {
@@ -68,6 +87,12 @@ export interface SuratJalanItem {
   unit: string;
   qty: number;
   note?: string;
+}
+
+export interface SuratJalanHelper {
+  helperId?: string;
+  helperName: string;
+  role?: string;
 }
 
 export interface SuratJalan {
@@ -83,6 +108,9 @@ export interface SuratJalan {
   recipientPhone?: string;
   deliveryAddress: string;
   driverName: string;
+  driverId?: string;
+  ritaseSupir?: number;
+  helpers?: SuratJalanHelper[];
   vehiclePlate: string;
   items: SuratJalanItem[];
   status: "draft" | "sent" | "delivered" | "cancelled";

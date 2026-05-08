@@ -17,8 +17,11 @@ const PAGE_TITLES: Record<string, string> = {
   "/marketing":   "Marketing",
   "/inventory":   "Inventaris",
   "/surat-jalan": "Surat Jalan",
+  "/drivers":     "Supir",
+  "/helpers":     "Helper",
   "/invoice":     "Invoice",
   "/rekapan":     "Rekapan Penyewa",
+  "/ritase":      "Rekap Ritase Supir",
   "/reports":     "Laporan",
   "/settings":    "Pengaturan",
 };
