@@ -84,9 +84,25 @@ export default function InvoicePage() {
 
   // ─ Handlers ─
   const openCreate = useCallback(() => {
-    setForm({ ...emptyForm, number: "" });
+    // Generate next invoice number based on currently loaded invoices
+    const prefixInvoices = invoices.filter(inv => inv.number.toLowerCase().startsWith("inv-"));
+    let nextNumber = "Inv-00001";
+    if (prefixInvoices.length > 0) {
+      // Find the numerically highest suffix after "Inv-"
+      let maxNum = 0;
+      prefixInvoices.forEach(inv => {
+        const parts = inv.number.split("-");
+        if (parts.length > 1) {
+          const num = parseInt(parts[1], 10);
+          if (!isNaN(num) && num > maxNum) maxNum = num;
+        }
+      });
+      nextNumber = `Inv-${String(maxNum + 1).padStart(5, "0")}`;
+    }
+
+    setForm({ ...emptyForm, number: nextNumber });
     setEditingId(null); setShowForm(true);
-  }, []);
+  }, [invoices]);
 
   const openEdit = useCallback((inv: Invoice) => {
     setForm({
@@ -323,7 +339,7 @@ export default function InvoicePage() {
             {/* Dates & Status */}
             <div className="p-4 rounded-xl bg-gray-50/80 border border-gray-100 space-y-3">
               <p className="text-[12px] font-bold text-gray-500 uppercase tracking-wider">Detail Invoice & Cetak</p>
-              <TextInput label="No. Invoice" placeholder="Auto-generate" value={form.number} onChange={e => setForm(f => ({ ...f, number: e.target.value }))} hint="Kosongkan untuk otomatis" />
+              <TextInput label="No. Invoice" required value={form.number} onChange={e => setForm(f => ({ ...f, number: e.target.value }))} />
               <TextInput label="Deskripsi Ringkasan Tagihan" required placeholder="Contoh: Sewa Scaffolding Bulan April 2026"
                 value={form.summaryDescription} onChange={e => setForm(f => ({ ...f, summaryDescription: e.target.value }))} />
               <div className="grid grid-cols-2 gap-3">

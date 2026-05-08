@@ -483,14 +483,14 @@ export default function DeliveryListPage() {
               <p className="text-[12px] font-bold text-gray-500 uppercase tracking-wider">Item Kebutuhan</p>
               <Button type="button" variant="outline" size="sm" leftIcon={Plus} onClick={addItem}>Tambah Item</Button>
             </div>
-            <div className="rounded-xl border border-gray-100 bg-white overflow-hidden">
+            <div className="rounded-xl border border-gray-100 bg-white overflow-visible">
               <table className="w-full text-sm">
                 <thead className="bg-gray-50/80">
                   <tr>
-                    <th className="px-3 py-2 text-left text-[11px] font-semibold text-gray-400 uppercase w-1/2">Barang</th>
-                    <th className="px-3 py-2 text-center text-[11px] font-semibold text-gray-400 uppercase w-24">Dibutuhkan</th>
-                    {editingId && <th className="px-3 py-2 text-center text-[11px] font-semibold text-gray-400 uppercase w-24">Dikirim</th>}
-                    <th className="w-10" />
+                    <th className="px-3 py-2 text-left text-[11px] font-semibold text-gray-400 uppercase w-1/2 first:rounded-tl-xl">Barang</th>
+                    <th className="px-3 py-2 text-center text-[11px] font-semibold text-gray-400 uppercase w-16">Dibutuhkan</th>
+                    {editingId && <th className="px-3 py-2 text-center text-[11px] font-semibold text-gray-400 uppercase w-16">Dikirim</th>}
+                    <th className="w-10 last:rounded-tr-xl" />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
@@ -500,9 +500,9 @@ export default function DeliveryListPage() {
                         <SearchSelect placeholder="Pilih barang..." value={item.inventoryId || ""}
                           onChange={val => pickInventory(idx, val)} options={inventoryOptions} />
                       </td>
-                      <td className="px-3 py-2">
+                      <td className="px-2 py-2">
                         <input type="number" min={1} value={item.qtyNeeded} onChange={e => updateItem(idx, { qtyNeeded: Number(e.target.value) })}
-                          className="w-full px-2 py-1.5 rounded-lg border border-gray-200 text-center text-[13px] font-bold outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-500/20" />
+                          className="w-full px-1 py-1 rounded-md border border-gray-200 text-center text-[12px] font-bold outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-500/20" />
                       </td>
                       {editingId && (
                         <td className="px-3 py-2 text-center text-[13px] font-bold text-blue-600 bg-blue-50/30">

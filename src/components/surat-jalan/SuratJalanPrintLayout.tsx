@@ -2,6 +2,7 @@ import { forwardRef } from "react";
 import type { SuratJalan } from "../../types";
 import { format } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
+import { useCustomers } from "../../hooks/useCustomers";
 
 interface Props {
   sj: SuratJalan;
@@ -11,7 +12,9 @@ interface Props {
 
 const SuratJalanPrintLayout = forwardRef<HTMLDivElement, Props>(
   ({ sj, paperWidth, paperHeight }, ref) => {
-
+    const { data: customers = [] } = useCustomers();
+    const customer = customers.find(c => c.id === sj.customerId);
+    const project = customer?.projects?.find(p => p.id === sj.projectId);
 
     const formattedDate = format(new Date(sj.date), "dd MMMM yyyy", { locale: idLocale });
     const typeLabel = sj.type === "pengiriman" ? "PENGIRIMAN" : "PENGEMBALIAN";
@@ -72,7 +75,7 @@ const SuratJalanPrintLayout = forwardRef<HTMLDivElement, Props>(
               <tr>
                 <td style={{ width: "60px", verticalAlign: "top" }}>Proyek</td>
                 <td style={{ width: "12px", verticalAlign: "top" }}>:</td>
-                <td style={{ verticalAlign: "top" }}>{sj.projectName || "—"}</td>
+                <td style={{ verticalAlign: "top" }}>{project?.location || sj.projectName || "—"}</td>
               </tr>
               <tr>
                 <td style={{ verticalAlign: "top" }}>UP</td>
@@ -228,35 +231,21 @@ const SuratJalanPrintLayout = forwardRef<HTMLDivElement, Props>(
         </div>
 
         {/* ── Signatures ───────────────────────────────────────── */}
-        <div style={{ fontSize: "12px" }}>
-          {/* Date line - right aligned, above signatures */}
-          <div style={{ textAlign: "right", marginBottom: "8px" }}>
-            <span>Batam, {formattedDate}</span>
-          </div>
-
-          {/* All 4 signature columns in one row */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-            {["Diterima oleh", "Dikirim oleh", "Dikeluarkan oleh", "Mengetahui oleh,"].map((label) => (
+        <div style={{ fontSize: "12px", marginTop: "16px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
+            {["Diterima oleh", "Dikirim oleh", "Dikeluarkan oleh"].map((label) => (
               <div key={label} style={{ textAlign: "center", width: "120px" }}>
                 <p style={{ margin: "0 0 60px 0", fontWeight: "bold", fontSize: "11px" }}>{label}</p>
-                <p style={{ margin: 0, fontSize: "11px" }}>(..................................)
-                </p>
+                <p style={{ margin: 0, fontSize: "11px" }}>(..................................)</p>
               </div>
             ))}
-          </div>
-        </div>
-        {/* Right: date + Mengetahui */}
-        <div style={{ textAlign: "right" }}>
-          <p style={{ margin: "0 0 4px 0", fontSize: "12px" }}>
-            Batam, {formattedDate}
-          </p>
-          <div style={{ textAlign: "center" }}>
-            <p style={{ margin: "0 0 60px 0", fontWeight: "bold", fontSize: "11px" }}>
-              Mengetahui oleh,
-            </p>
-            <p style={{ margin: 0, fontSize: "11px" }}>
-              (..................................)
-            </p>
+            
+            {/* 4th Signature Column with Date */}
+            <div style={{ textAlign: "center", width: "150px" }}>
+              <p style={{ margin: "0 0 4px 0", fontSize: "11px" }}>Batam, {formattedDate}</p>
+              <p style={{ margin: "0 0 60px 0", fontWeight: "bold", fontSize: "11px" }}>Mengetahui oleh,</p>
+              <p style={{ margin: 0, fontSize: "11px" }}>(..................................)</p>
+            </div>
           </div>
         </div>
       </div>
