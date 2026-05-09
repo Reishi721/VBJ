@@ -1,12 +1,12 @@
 import { useMemo } from "react";
 import { ArrowUpRight } from "lucide-react";
 import { Card, StatusBadge, Button } from "../ui";
-import { useInvoiceStore } from "../../stores/useInvoiceStore";
+import { useInvoices } from "../../hooks/useInvoices";
 import { formatDate, formatCurrency } from "../../lib/utils";
 import { useNavigate } from "react-router-dom";
 
 export default function RecentActivity() {
-  const { invoices } = useInvoiceStore();
+  const { data: invoices = [] } = useInvoices();
   const navigate = useNavigate();
 
   const activities = useMemo(() => {

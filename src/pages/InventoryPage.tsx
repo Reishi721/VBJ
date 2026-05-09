@@ -307,7 +307,7 @@ export default function InventoryPage() {
       header: "Dibuat",
       accessorKey: "createdAt",
       cell: ({ row }) => (
-        <span className="text-[12px] text-gray-400">{row.original.createdAt}</span>
+        <span className="text-[12px] text-gray-400">{new Date(row.original.createdAt).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })}</span>
       ),
     },
     {

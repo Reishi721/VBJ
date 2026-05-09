@@ -152,6 +152,8 @@ export default function SuratJalanPage() {
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
@@ -197,8 +199,10 @@ export default function SuratJalanPage() {
         sj.number.toLowerCase().includes(search.toLowerCase()) ||
         sj.customerName.toLowerCase().includes(search.toLowerCase());
       const matchStatus = statusFilter === "all" || sj.status === statusFilter;
-      return matchSearch && matchStatus;
-    }), [suratJalans, search, statusFilter]);
+      const matchStartDate = !startDate || sj.date >= startDate;
+      const matchEndDate = !endDate || sj.date <= endDate;
+      return matchSearch && matchStatus && matchStartDate && matchEndDate;
+    }), [suratJalans, search, statusFilter, startDate, endDate]);
 
   // ─ Stats ─
   const drafted = suratJalans.filter(s => s.status === "draft").length;
@@ -414,19 +418,30 @@ export default function SuratJalanPage() {
       ]} />
 
       {/* Filter + Search */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="flex items-center bg-gray-100/80 rounded-xl p-1 w-fit">
-          {(["all", "draft", "sent", "delivered", "cancelled"] as const).map((s) => {
-            const labels: Record<string, string> = { all: "Semua", draft: "Draft", sent: "Dikirim", delivered: "Diterima", cancelled: "Batal" };
-            return (
-              <button key={s} onClick={() => setStatusFilter(s)}
-                className={`px-3 py-1.5 rounded-lg text-[12px] font-semibold transition-all ${statusFilter === s ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-700"}`}>
-                {labels[s]}
-              </button>
-            );
-          })}
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+          <div className="flex items-center bg-gray-100/80 rounded-xl p-1 w-fit flex-wrap">
+            {(["all", "draft", "sent", "delivered", "cancelled"] as const).map((s) => {
+              const labels: Record<string, string> = { all: "Semua", draft: "Draft", sent: "Dikirim", delivered: "Diterima", cancelled: "Batal" };
+              return (
+                <button key={s} onClick={() => setStatusFilter(s)}
+                  className={`px-3 py-1.5 rounded-lg text-[12px] font-semibold transition-all ${statusFilter === s ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-700"}`}>
+                  {labels[s]}
+                </button>
+              );
+            })}
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-36">
+              <DatePicker value={startDate} onChange={setStartDate} placeholder="Mulai Tgl" />
+            </div>
+            <span className="text-gray-400 text-sm">-</span>
+            <div className="w-36">
+              <DatePicker value={endDate} onChange={setEndDate} placeholder="Sampai Tgl" />
+            </div>
+          </div>
         </div>
-        <div className="flex-1 max-w-xs">
+        <div className="w-full">
           <SearchBar value={search} onChange={setSearch} placeholder="Cari nomor, pelanggan, pengemudi..." />
         </div>
       </div>

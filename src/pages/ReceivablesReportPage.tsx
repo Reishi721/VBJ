@@ -2,7 +2,7 @@ import React, { useState, useMemo } from "react";
 import { useInvoices } from "../hooks/useInvoices";
 import { useCustomers } from "../hooks/useCustomers";
 import { formatRupiah } from "../components/invoice/InvoiceHelpers";
-import { SectionHeader, SearchSelect } from "../components/ui";
+import { SectionHeader, SearchSelect, DatePicker } from "../components/ui";
 import { format, parseISO } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { FileText, Printer, Building2 } from "lucide-react";
@@ -41,11 +41,19 @@ interface PeriodGroup {
 
 function calculateInvoiceRow(inv: any): ReportRow {
   // Extract values based on user requirements:
-  // Sewa Baru = if billingCycle includes "1", else Perp. Sewa
-  const isSewaBaru = inv.billingCycle === "1" || inv.billingCycle?.toLowerCase()?.includes("sewa ke 1");
+  // Sewa Baru = if billingCycle contains number 1 (e.g. "Sewa ke 01", "1").
+  // Perpanjangan = if billingCycle contains numbers > 1 (e.g. "02", "3").
+  const cycleStr = (inv.billingCycle || "").toLowerCase().trim();
+  let isSewaBaru = false;
   
-  // Base rental logic (subtotal minus discount plus tax proportion for simplicity, or just subtotal?)
-  // The image shows total values. We'll use subtotal for the rental part.
+  const match = cycleStr.match(/\d+/);
+  if (match) {
+    isSewaBaru = parseInt(match[0], 10) === 1;
+  } else {
+    isSewaBaru = cycleStr.includes("baru");
+  }
+  
+  // Base rental logic
   const sewaValue = inv.subtotal - inv.discount; 
   const perpSewa = isSewaBaru ? 0 : sewaValue;
   const sewaBaru = isSewaBaru ? sewaValue : 0;
@@ -112,10 +120,15 @@ export default function ReceivablesReportPage() {
   const { data: invoices = [] } = useInvoices();
   const { data: customers = [] } = useCustomers();
   
-  const [selectedCustomerId, setSelectedCustomerId] = useState<string>("");
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string>("all");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
 
   const customerOptions = useMemo(() => {
-    return customers.map(c => ({ value: c.id, label: c.name }));
+    return [
+      { value: "all", label: "Semua Pelanggan" },
+      ...customers.map(c => ({ value: c.id, label: c.name }))
+    ];
   }, [customers]);
 
   // Grouping logic
@@ -123,15 +136,23 @@ export default function ReceivablesReportPage() {
     if (!selectedCustomerId) return []; // Require search/selection
 
     const filteredInvoices = invoices.filter(inv => 
-      inv.status !== "cancelled" && inv.status !== "draft" &&
-      inv.customerId === selectedCustomerId
+      inv.status !== "cancelled" && 
+      inv.status !== "draft" &&
+      inv.status !== "paid" &&
+      (selectedCustomerId === "all" || inv.customerId === selectedCustomerId) &&
+      (!startDate || inv.date >= startDate) &&
+      (!endDate || inv.date <= endDate)
     );
 
     // Group by period (YYYY-MM) -> customerId -> rows
     const periodsMap = new Map<string, Map<string, ReportRow[]>>();
 
     filteredInvoices.forEach(inv => {
-      const date = parseISO(inv.date);
+      let date = new Date();
+      try {
+        if (inv.date) date = parseISO(inv.date);
+      } catch (e) {}
+      
       const periodKey = format(date, "yyyy-MM");
       const custId = inv.customerId;
       
@@ -151,7 +172,10 @@ export default function ReceivablesReportPage() {
     const result: PeriodGroup[] = Array.from(periodsMap.entries())
       .sort((a, b) => b[0].localeCompare(a[0])) // Descending period
       .map(([periodKey, custMap]) => {
-        const periodDate = parseISO(`${periodKey}-01`);
+        let periodDate = new Date();
+        try {
+          periodDate = parseISO(`${periodKey}-01`);
+        } catch (e) {}
         const periodLabel = format(periodDate, "MMMM yyyy", { locale: idLocale });
         
         let periodSummary = emptySummary();
@@ -198,21 +222,37 @@ export default function ReceivablesReportPage() {
       />
 
       {/* Filter Section */}
-      <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex flex-col sm:flex-row gap-4 items-center justify-between">
-        <div className="w-full sm:w-80">
-          <p className="text-[12px] font-bold text-gray-500 uppercase tracking-wider mb-2">Filter Pelanggan</p>
-          <SearchSelect 
-            value={selectedCustomerId}
-            onChange={setSelectedCustomerId}
-            options={customerOptions}
-            placeholder="Cari pelanggan..."
-          />
-        </div>
-        <div className="flex gap-3">
-          <button className="flex items-center gap-2 px-4 py-2 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-xl font-semibold text-[13px] transition-all border border-gray-200" onClick={() => window.print()}>
-            <Printer className="w-4 h-4" />
-            Cetak Laporan
-          </button>
+      <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex flex-col gap-4">
+        <div className="flex flex-col sm:flex-row gap-4 items-end justify-between">
+          <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto items-end">
+            <div className="w-full sm:w-80">
+              <p className="text-[12px] font-bold text-gray-500 uppercase tracking-wider mb-2">Filter Pelanggan</p>
+              <SearchSelect 
+                value={selectedCustomerId}
+                onChange={setSelectedCustomerId}
+                options={customerOptions}
+                placeholder="Cari pelanggan..."
+              />
+            </div>
+            <div>
+              <p className="text-[12px] font-bold text-gray-500 uppercase tracking-wider mb-2">Periode Tanggal</p>
+              <div className="flex items-center gap-2">
+                <div className="w-36">
+                  <DatePicker value={startDate} onChange={setStartDate} placeholder="Mulai Tgl" />
+                </div>
+                <span className="text-gray-400 text-sm">-</span>
+                <div className="w-36">
+                  <DatePicker value={endDate} onChange={setEndDate} placeholder="Sampai Tgl" />
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <button className="flex items-center gap-2 px-4 py-2.5 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-xl font-semibold text-[13px] transition-all border border-gray-200" onClick={() => window.print()}>
+              <Printer className="w-4 h-4" />
+              Cetak Laporan
+            </button>
+          </div>
         </div>
       </div>
 
@@ -249,19 +289,11 @@ export default function ReceivablesReportPage() {
               </tr>
             </thead>
             <tbody>
-              {!selectedCustomerId ? (
-                <tr>
-                  <td colSpan={14} className="py-16 text-center text-gray-400">
-                    <Building2 className="w-12 h-12 mx-auto mb-3 opacity-20" />
-                    <p className="font-semibold text-[14px]">Pilih pelanggan terlebih dahulu</p>
-                    <p className="text-[12px] mt-1">Gunakan kotak pencarian di atas untuk memuat laporan piutang pelanggan.</p>
-                  </td>
-                </tr>
-              ) : groupedData.length === 0 ? (
+              {groupedData.length === 0 ? (
                 <tr>
                   <td colSpan={14} className="py-12 text-center text-gray-400">
                     <FileText className="w-12 h-12 mx-auto mb-3 opacity-20" />
-                    <p className="font-semibold">Tidak ada data piutang untuk pelanggan ini.</p>
+                    <p className="font-semibold">Tidak ada data piutang untuk kriteria ini.</p>
                   </td>
                 </tr>
               ) : null}
@@ -291,7 +323,7 @@ export default function ReceivablesReportPage() {
                       {cust.rows.map((row) => (
                         <tr key={row.id} className="border-b border-gray-100 hover:bg-gray-50/50 transition-colors">
                           <td className="py-2 px-3 font-mono text-gray-600">{row.noInv}</td>
-                          <td className="py-2 px-3 text-gray-700">{format(parseISO(row.tanggal), "dd-MMM-yy", { locale: idLocale })}</td>
+                          <td className="py-2 px-3 text-gray-700">{(() => { try { return format(parseISO(row.tanggal), "dd-MMM-yy", { locale: idLocale }); } catch { return row.tanggal || "-"; } })()}</td>
                           <td className="py-2 px-3 text-gray-600 truncate max-w-[200px]" title={row.periode}>{row.periode}</td>
                           <td className="py-2 px-3 text-gray-500">IDR</td>
                           <td className="py-2 px-3 text-right text-gray-700">{row.jaminan ? formatRupiah(row.jaminan) : "0,00"}</td>

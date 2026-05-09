@@ -258,25 +258,9 @@ export function useAddPayment() {
       });
       if (pErr) throw pErr;
 
-      // Update invoice paid_amount & remaining_amount
-      const { data: inv, error: fetchErr } = await supabase
-        .from("invoices")
-        .select("total, paid_amount")
-        .eq("id", payment.invoiceId)
-        .single();
-      if (fetchErr) throw fetchErr;
-
-      const newPaid      = (inv.paid_amount ?? 0) + payment.amount;
-      const newRemaining = Math.max(0, inv.total - newPaid);
-      const newStatus: InvoiceStatus =
-        newRemaining <= 0 ? "paid" : newPaid > 0 ? "partial" : "sent";
-
-      const { error: updErr } = await supabase.from("invoices").update({
-        paid_amount:      newPaid,
-        remaining_amount: newRemaining,
-        status:           newStatus,
-      }).eq("id", payment.invoiceId);
-      if (updErr) throw updErr;
+      // The `sync_invoice_payment` database trigger automatically updates
+      // the invoice's paid_amount, remaining_amount, and status.
+      // So we don't need to manually update the invoice here.
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: invoiceKeys.all });

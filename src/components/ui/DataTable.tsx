@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   flexRender,
   getCoreRowModel,
@@ -14,6 +14,7 @@ interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
   pagination?: boolean;
+  pageSize?: number;
   className?: string;
   onRowClick?: (row: TData) => void;
 }
@@ -22,6 +23,7 @@ export function DataTable<TData, TValue>({
   columns,
   data,
   pagination = true,
+  pageSize = 25,
   className,
   onRowClick,
 }: DataTableProps<TData, TValue>) {
@@ -34,10 +36,15 @@ export function DataTable<TData, TValue>({
     getPaginationRowModel: pagination ? getPaginationRowModel() : undefined,
     onSortingChange: setSorting,
     getSortedRowModel: getSortedRowModel(),
-    state: {
-      sorting,
-    },
+    state: { sorting },
+    initialState: { pagination: { pageSize } },
   });
+
+  // Sync if pageSize prop changes
+  useEffect(() => {
+    if (pagination) table.setPageSize(pageSize);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageSize]);
 
   return (
     <div className={cn("rounded-2xl bg-white border border-gray-100 shadow-sm overflow-hidden flex flex-col", className)}>
@@ -105,48 +112,44 @@ export function DataTable<TData, TValue>({
         </table>
       </div>
 
-      {pagination && table.getPageCount() > 1 && (
-        <div className="px-5 py-4 border-t border-gray-100 flex items-center justify-between bg-gray-50/30">
-          <div className="text-[12px] font-medium text-gray-500">
-            Menampilkan <span className="text-gray-900">{table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1}</span> hingga{" "}
-            <span className="text-gray-900">
-              {Math.min((table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize, data.length)}
-            </span>{" "}
-            dari <span className="text-gray-900">{data.length}</span> data
-          </div>
-          <div className="flex items-center gap-1.5">
-            <button
-              onClick={() => table.setPageIndex(0)}
-              disabled={!table.getCanPreviousPage()}
-              className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-            >
-              <ChevronsLeft className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => table.previousPage()}
-              disabled={!table.getCanPreviousPage()}
-              className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <span className="px-3 text-[13px] font-semibold text-gray-700">
-              {table.getState().pagination.pageIndex + 1} / {table.getPageCount()}
+      {pagination && table.getPageCount() >= 1 && (
+        <div className="px-5 py-3.5 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-3 bg-gray-50/30">
+          <div className="flex items-center gap-3 text-[12px] font-medium text-gray-500">
+            <span>
+              Menampilkan{" "}
+              <span className="font-semibold text-gray-800">
+                {table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1}–
+                {Math.min((table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize, data.length)}
+              </span>{" "}
+              dari <span className="font-semibold text-gray-800">{data.length}</span> data
             </span>
-            <button
-              onClick={() => table.nextPage()}
-              disabled={!table.getCanNextPage()}
-              className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            <select
+              value={table.getState().pagination.pageSize}
+              onChange={e => { table.setPageSize(Number(e.target.value)); table.setPageIndex(0); }}
+              className="rounded-lg border border-gray-200 bg-white px-2 py-1 text-[12px] font-semibold text-gray-700 focus:outline-none focus:border-blue-400 cursor-pointer"
             >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => table.setPageIndex(table.getPageCount() - 1)}
-              disabled={!table.getCanNextPage()}
-              className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-            >
-              <ChevronsRight className="w-4 h-4" />
-            </button>
+              {[10, 25, 50, 100].map(s => <option key={s} value={s}>{s} / hal</option>)}
+            </select>
           </div>
+          {table.getPageCount() > 1 && (
+            <div className="flex items-center gap-1">
+              <button onClick={() => table.setPageIndex(0)} disabled={!table.getCanPreviousPage()} className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all">
+                <ChevronsLeft className="w-4 h-4" />
+              </button>
+              <button onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()} className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all">
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <span className="px-3 text-[13px] font-semibold text-gray-700">
+                {table.getState().pagination.pageIndex + 1} / {table.getPageCount()}
+              </span>
+              <button onClick={() => table.nextPage()} disabled={!table.getCanNextPage()} className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all">
+                <ChevronRight className="w-4 h-4" />
+              </button>
+              <button onClick={() => table.setPageIndex(table.getPageCount() - 1)} disabled={!table.getCanNextPage()} className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all">
+                <ChevronsRight className="w-4 h-4" />
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

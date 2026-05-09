@@ -255,3 +255,17 @@ export function useDeleteCategory() {
     onError: (err: Error) => toast.error(`Gagal hapus kategori: ${err.message}`),
   });
 }
+
+// ─── Combined convenience hook ────────────────────────────────────────────────
+/**
+ * useInventory — returns { data: { items, categories }, isLoading }
+ * Convenience wrapper over useInventoryItems + useInventoryCategories
+ */
+export function useInventory() {
+  const { data: items = [],      isLoading: l1 } = useInventoryItems();
+  const { data: categories = [], isLoading: l2 } = useInventoryCategories();
+  return {
+    data: { items, categories },
+    isLoading: l1 || l2,
+  };
+}

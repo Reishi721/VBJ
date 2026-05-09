@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import {
   Button, SearchBar, SearchSelect, Select, Modal,
-  ConfirmDialog, SectionHeader
+  ConfirmDialog, SectionHeader, usePagination, Pagination
 } from "../components/ui";
 import { useCompanySettings } from "../hooks/useSettings";
 
@@ -596,6 +596,9 @@ export default function RentalRecapPage() {
     [recaps, search]
   );
 
+  const { page, pageCount, pageSize, setPage, setPageSize, paginate } = usePagination(filtered.length, 12);
+  const pagedRecaps = paginate(filtered);
+
   const getSJCount = useCallback(
     (recap: RentalRecap) =>
       suratJalans.filter(
@@ -628,7 +631,7 @@ export default function RentalRecapPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map((recap) => {
+          {pagedRecaps.map((recap) => {
             const sjCount = getSJCount(recap);
             const colCount = recap.columns.length;
             return (
@@ -680,6 +683,15 @@ export default function RentalRecapPage() {
             );
           })}
         </div>
+        <Pagination
+          page={page}
+          pageCount={pageCount}
+          pageSize={pageSize}
+          total={filtered.length}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+          pageSizeOptions={[6, 12, 24, 48]}
+        />
       )}
 
       {/* Modals — hanya mount saat dibutuhkan */}

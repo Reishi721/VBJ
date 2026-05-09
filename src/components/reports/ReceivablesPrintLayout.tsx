@@ -1,4 +1,4 @@
-import { forwardRef } from "react";
+import { forwardRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useCompanySettings } from "../../hooks/useSettings";
 import { format } from "date-fns";
@@ -23,27 +23,64 @@ interface Props {
 
 const ReceivablesPrintLayout = forwardRef<HTMLDivElement, Props>(({ data }, ref) => {
   const { data: settingsData } = useCompanySettings();
-  const company = settingsData?.company || { name: "", tagline: "", logoUrl: "" };
+  const company = settingsData?.company || {
+    name: "", tagline: "", addressLine1: "", addressLine2: "",
+    phone: "", fax: "", logoUrl: "",
+  };
   const currentDate = format(new Date(), "dd MMMM yyyy", { locale: id });
 
   const grandTotalRemaining = data.reduce((sum, g) => sum + g.totalRemaining, 0);
-  const grandTotalInvoice = data.reduce((sum, g) => sum + g.totalInvoice, 0);
-  const grandTotalPaid = data.reduce((sum, g) => sum + g.totalPaid, 0);
+  const grandTotalInvoice   = data.reduce((sum, g) => sum + g.totalInvoice, 0);
+  const grandTotalPaid      = data.reduce((sum, g) => sum + g.totalPaid, 0);
+
+  // Ensure #print-root container exists in body
+  useEffect(() => {
+    if (!document.getElementById("print-root")) {
+      const el = document.createElement("div");
+      el.id = "print-root";
+      el.style.cssText = "display:none;position:fixed;inset:0;background:white;z-index:9999;overflow:auto;";
+      document.body.appendChild(el);
+    }
+  }, []);
 
   const printRoot = document.getElementById("print-root") || document.body;
 
   return createPortal(
-    <div ref={ref} style={{ fontFamily: "Arial, sans-serif" }} className="hidden print:block w-full bg-white text-black p-8 text-[12px]">
-      {/* Header */}
-      <div className="flex items-center gap-4 mb-2 pb-3 border-b-2 border-gray-800">
-        {company.logoUrl && (
-          <img src={company.logoUrl} alt="Logo" className="h-14 w-14 object-contain" />
-        )}
-        <div>
-          <div className="text-[18px] font-bold uppercase">{company.name || "PERUSAHAAN"}</div>
-          {company.tagline && <div className="text-[11px] text-gray-600">{company.tagline}</div>}
+    <div ref={ref} style={{ fontFamily: "Arial, sans-serif" }} className="w-full bg-white text-black p-8 text-[12px]">
+
+      {/* ─── KOP SURAT — same as InvoicePrintLayout ─── */}
+      <div style={{ fontFamily: '"Times New Roman", Times, serif' }} className="flex items-stretch gap-4 mb-2">
+        {/* Logo */}
+        <div className="w-[90px] shrink-0 flex items-center justify-center">
+          {company.logoUrl ? (
+            <img src={company.logoUrl} alt="Logo" className="w-full h-full object-contain" />
+          ) : (
+            <div style={{ fontFamily: '"Times New Roman", Times, serif' }}
+              className="text-[60px] font-black text-red-600 leading-none">V</div>
+          )}
+        </div>
+
+        {/* Company info */}
+        <div className="flex flex-col justify-center">
+          <h1 style={{ fontFamily: '"Rockwell Extra Bold", Rockwell, serif' }}
+            className="text-[22px] font-black uppercase tracking-wide text-red-600">
+            {company.name || "PERUSAHAAN"}
+          </h1>
+          {company.tagline && (
+            <h2 className="text-[13px] font-bold uppercase italic">{company.tagline}</h2>
+          )}
+          {company.addressLine1 && <p className="text-[11px]">{company.addressLine1}</p>}
+          {(company.phone || company.fax) && (
+            <p className="text-[11px]">
+              Telp : {company.phone}{company.fax ? ` / ${company.fax}` : ""}
+            </p>
+          )}
+          {company.addressLine2 && <p className="text-[11px]">{company.addressLine2}</p>}
         </div>
       </div>
+
+      {/* Silver rule — same as invoice */}
+      <div className="border-t-[3px] border-[#C0C0C0] w-full mb-4" />
 
       <div className="text-center font-bold text-[16px] uppercase underline mb-1 mt-4">
         LAPORAN PIUTANG PELANGGAN

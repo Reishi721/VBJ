@@ -5,11 +5,26 @@ import {
   Calendar, Users, FileText, TrendingUp,
   CreditCard, AlertTriangle, CheckCircle2,
 } from "lucide-react";
-import { Button, SearchBar, SectionHeader } from "../components/ui";
+import { Button, SearchBar, SectionHeader, usePagination, Pagination } from "../components/ui";
 import { formatRupiah } from "../components/invoice/InvoiceHelpers";
 import ReceivablesPrintLayout from "../components/reports/ReceivablesPrintLayout";
 import { format, parseISO } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
+
+// Inject print CSS once
+const PRINT_STYLE = `
+@media print {
+  body > * { display: none !important; }
+  #print-root, #print-root * { display: block !important; visibility: visible !important; }
+  #print-root { position: fixed; inset: 0; background: white; z-index: 9999; }
+  @page { size: A4 landscape; margin: 1.5cm; }
+}`;
+if (typeof document !== "undefined" && !document.getElementById("receivables-print-style")) {
+  const s = document.createElement("style");
+  s.id = "receivables-print-style";
+  s.textContent = PRINT_STYLE;
+  document.head.appendChild(s);
+}
 
 /* ── Types ──────────────────────────────────────────────────── */
 interface InvoiceReportItem {
@@ -160,12 +175,16 @@ export default function ReportsPage() {
   }, [invoices, search]);
 
   const grandTotal = useMemo(() => ({
-    invoice: periods.reduce((s, p) => s + p.totalInvoice, 0),
-    paid: periods.reduce((s, p) => s + p.totalPaid, 0),
+    invoice:   periods.reduce((s, p) => s + p.totalInvoice, 0),
+    paid:      periods.reduce((s, p) => s + p.totalPaid, 0),
     remaining: periods.reduce((s, p) => s + p.totalRemaining, 0),
-    count: periods.reduce((s, p) => s + p.invoiceCount, 0),
+    count:     periods.reduce((s, p) => s + p.invoiceCount, 0),
     customers: new Set(periods.flatMap((p) => p.customers.map((c) => c.customerId))).size,
   }), [periods]);
+
+  // Paginated periods (for UI display)
+  const periodPagination = usePagination(periods.length, 6);
+  const pagedPeriods = periodPagination.paginate(periods);
 
   /* ── For print layout compatibility ───────────────────────── */
   const flatReceivables = useMemo(() => {
@@ -187,7 +206,7 @@ export default function ReportsPage() {
   const paidPct = grandTotal.invoice > 0 ? Math.round((grandTotal.paid / grandTotal.invoice) * 100) : 0;
 
   return (
-    <div className="space-y-6 print:hidden">
+    <div className="space-y-6">
       {/* ── Header ──────────────────────────────────────────── */}
       <SectionHeader
         title="Piutang Pelanggan"
@@ -303,7 +322,7 @@ export default function ReportsPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {periods.map((period) => {
+          {pagedPeriods.map((period) => {
             const isOpen = expandedPeriods.has(period.key);
             return (
               <div
@@ -452,7 +471,17 @@ export default function ReportsPage() {
             );
           })}
 
-          {/* ── Grand Total ─────────────────────────────────── */}
+          <Pagination
+            page={periodPagination.page}
+            pageCount={periodPagination.pageCount}
+            pageSize={periodPagination.pageSize}
+            total={periods.length}
+            onPageChange={periodPagination.setPage}
+            onPageSizeChange={periodPagination.setPageSize}
+            pageSizeOptions={[3, 6, 12]}
+          />
+
+          {/* Grand Total */}
           <div className="rounded-2xl overflow-hidden shadow-sm border border-gray-200">
             <div className="bg-gradient-to-r from-slate-800 to-slate-900 px-6 py-5 flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -485,7 +514,7 @@ export default function ReportsPage() {
         </div>
       )}
 
-      {/* Print Layout */}
+      {/* Print Layout — rendered into #print-root portal, hidden on screen, visible on print */}
       <ReceivablesPrintLayout ref={printRef} data={flatReceivables} />
     </div>
   );

@@ -1,4 +1,5 @@
 import { useMemo, useState, useCallback } from "react";
+import { formatDate } from "../lib/utils";
 import { Plus, Pencil, Trash2, UserCog } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import {
@@ -87,7 +88,7 @@ export default function HelpersPage() {
     {
       header: "Dibuat",
       accessorKey: "createdAt",
-      cell: ({ row }) => <span className="text-[12px] text-gray-400">{row.original.createdAt}</span>,
+      cell: ({ row }) => <span className="text-[12px] text-gray-400">{formatDate(row.original.createdAt)}</span>,
     },
     {
       header: "Aksi",

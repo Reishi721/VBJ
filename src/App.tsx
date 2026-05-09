@@ -21,6 +21,8 @@ const RentalRecapPage = lazy(() => import('./pages/RentalRecapPage'))
 const ReportsPage     = lazy(() => import('./pages/ReportsPage'))
 const ReceivablesReportPage = lazy(() => import('./pages/ReceivablesReportPage'))
 const RitaseRecapPage = lazy(() => import('./pages/RitaseRecapPage'))
+const SuratPerjanjianPage = lazy(() => import('./pages/SuratPerjanjianPage'))
+const RentalPriceListPage = lazy(() => import('./pages/RentalPriceListPage'))
 
 // ─── Loading fallback ─────────────────────────────────────────────────────────
 function PageLoader() {
@@ -60,6 +62,8 @@ function App() {
               <Route path="customers" element={<Suspense fallback={<PageLoader />}><CustomerPage /></Suspense>} />
               <Route path="inventory" element={<Suspense fallback={<PageLoader />}><InventoryPage /></Suspense>} />
               <Route path="surat-jalan" element={<Suspense fallback={<PageLoader />}><SuratJalanPage /></Suspense>} />
+              <Route path="surat-perjanjian" element={<Suspense fallback={<PageLoader />}><SuratPerjanjianPage /></Suspense>} />
+              <Route path="daftar-harga-sewa" element={<Suspense fallback={<PageLoader />}><RentalPriceListPage /></Suspense>} />
               <Route path="drivers" element={<Suspense fallback={<PageLoader />}><DriversPage /></Suspense>} />
               <Route path="helpers" element={<Suspense fallback={<PageLoader />}><HelpersPage /></Suspense>} />
               <Route path="delivery-lists" element={<Suspense fallback={<PageLoader />}><DeliveryListPage /></Suspense>} />

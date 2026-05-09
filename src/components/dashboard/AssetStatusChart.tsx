@@ -1,10 +1,10 @@
 import { useMemo } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { Card } from "../ui";
-import { useInventoryStore } from "../../stores/useInventoryStore";
+import { useInventoryItems } from "../../hooks/useInventory";
 
 export default function AssetStatusChart() {
-  const { items } = useInventoryStore();
+  const { data: items = [] } = useInventoryItems();
 
   const data = useMemo(() => {
     const damaged      = items.filter(i => i.condition === "damaged").reduce((s, i) => s + i.stock, 0);

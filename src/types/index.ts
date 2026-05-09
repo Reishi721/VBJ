@@ -294,3 +294,73 @@ export interface DeliveryList {
   shipments: DeliveryListShipment[];
   createdAt: string;
 }
+
+// ─── Surat Perjanjian ─────────────────────────────────────────────────────────
+
+export interface PihakPertama {
+  id: string;
+  name: string;
+  address: string;
+  phone: string;
+  position: string;
+  isDefault: boolean;
+  createdAt: string;
+}
+
+export interface RentalPriceList {
+  id: string;
+  inventoryId: string;
+  inventoryName: string;
+  inventoryCode: string;
+  categoryId?: string;
+  categoryName?: string;
+  hargaGanti: number;   // harga ganti rugi per satuan
+  hargaSewa: number;    // harga sewa per bulan
+  satuan: string;       // pc, set, bting, dll
+}
+
+export interface SuratPerjanjianItem {
+  id?: string;
+  inventoryId?: string;
+  inventoryName: string;
+  inventoryCode: string;
+  categoryId?: string;
+  categoryName?: string;
+  hargaGanti: number;
+  hargaSewa: number;
+  satuan: string;
+  qty: number;
+  jumlah: number;       // qty * hargaSewa
+  itemOrder: number;
+  note?: string;
+}
+
+export type SuratPerjanjianStatus = 'draft' | 'active' | 'completed' | 'cancelled';
+
+export interface SuratPerjanjian {
+  id: string;
+  number: string;
+  date: string;
+  pihakPertamaId?: string;
+  pihakPertamaName: string;
+  pihakPertamaAddress: string;
+  pihakPertamaPhone: string;
+  pihakPertamaPosition: string;
+  customerId?: string;
+  customerName: string;
+  customerAddress: string;
+  customerPhone?: string;
+  customerFax?: string;
+  customerWakil?: string;
+  projectLocation?: string;
+  lamaSewa?: string;
+  pembayaranSelanjutnya?: string;
+  caraPembayaran: string;
+  transportFee: number;
+  uangJaminan: number;
+  total: number;
+  status: SuratPerjanjianStatus;
+  notes?: string;
+  items: SuratPerjanjianItem[];
+  createdAt: string;
+}

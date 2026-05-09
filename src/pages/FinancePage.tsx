@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useInvoices, usePayments } from "../hooks/useInvoices";
 import { formatRupiah } from "../components/invoice/InvoiceHelpers";
-import { SectionHeader, StatsRow } from "../components/ui";
+import { SectionHeader, StatsRow, usePagination, Pagination } from "../components/ui";
 import { format, parseISO, isThisMonth, isThisYear } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import {
@@ -106,7 +106,9 @@ export default function FinancePage() {
   }, [invoices]);
 
   // ── Recent payments ─────────────────────────────────────────────────────────
-  const recentPayments = useMemo(() => [...payments].slice(0, 10), [payments]);
+  const allPayments = useMemo(() => [...payments].sort((a, b) => b.date.localeCompare(a.date)), [payments]);
+  const { page, pageSize, pageCount, setPage, setPageSize, paginate } = usePagination(allPayments.length, 10);
+  const recentPayments = paginate(allPayments);
 
   const PIE_COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#8b5cf6"];
 
@@ -208,8 +210,8 @@ export default function FinancePage() {
       {/* ── Recent Payments ────────────────────────────────────────────── */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-100">
-          <p className="text-[14px] font-bold text-gray-900">Pembayaran Terbaru</p>
-          <p className="text-[12px] text-gray-400 mt-0.5">10 transaksi pembayaran terakhir</p>
+          <p className="text-[14px] font-bold text-gray-900">Riwayat Pembayaran</p>
+          <p className="text-[12px] text-gray-400 mt-0.5">{allPayments.length} total transaksi</p>
         </div>
         {recentPayments.length === 0 ? (
           <div className="py-16 text-center">
@@ -248,6 +250,14 @@ export default function FinancePage() {
             </tbody>
           </table>
         )}
+        <Pagination
+          page={page}
+          pageCount={pageCount}
+          pageSize={pageSize}
+          total={allPayments.length}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+        />
       </div>
     </div>
   );

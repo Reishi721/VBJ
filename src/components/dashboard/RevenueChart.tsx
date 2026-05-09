@@ -3,7 +3,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { formatCurrency } from "../../lib/utils";
 import { ChevronDown } from "lucide-react";
 import { Card } from "../ui";
-import { useInvoiceStore } from "../../stores/useInvoiceStore";
+import { usePayments } from "../../hooks/useInvoices";
 
 const MONTH_NAMES = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];
 
@@ -14,7 +14,7 @@ const yearColors: Record<number, string> = {
 };
 
 export default function RevenueChart() {
-  const { payments } = useInvoiceStore();
+  const { data: payments = [] } = usePayments();
   const currentYear = new Date().getFullYear();
 
   // Build available years from payments data + current year

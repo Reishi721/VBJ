@@ -47,6 +47,8 @@ export default function InvoicePage() {
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
@@ -66,7 +68,6 @@ export default function InvoicePage() {
     customers.map(c => ({ value: c.id, label: c.name, description: c.company || c.phone })),
     [customers]);
 
-  // ─ Filtered list ─
   const filtered = useMemo(() =>
     invoices.filter(inv => {
       const matchSearch =
@@ -74,8 +75,10 @@ export default function InvoicePage() {
         inv.customerName.toLowerCase().includes(search.toLowerCase()) ||
         inv.projectName?.toLowerCase().includes(search.toLowerCase());
       const matchStatus = statusFilter === "all" || inv.status === statusFilter;
-      return matchSearch && matchStatus;
-    }), [invoices, search, statusFilter]);
+      const matchStartDate = !startDate || inv.date >= startDate;
+      const matchEndDate = !endDate || inv.date <= endDate;
+      return matchSearch && matchStatus && matchStartDate && matchEndDate;
+    }), [invoices, search, statusFilter, startDate, endDate]);
 
   // ─ Stats ─
   const totalReceivables = invoices.reduce((s, i) => s + (i.status !== "cancelled" ? i.remainingAmount : 0), 0);
@@ -275,19 +278,30 @@ export default function InvoicePage() {
       ]} />
 
       {/* Filter + Search */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="flex items-center bg-gray-100/80 rounded-xl p-1 w-fit flex-wrap">
-          {(["all", "draft", "sent", "partial", "paid", "overdue"] as const).map((s) => {
-            const labels: Record<string, string> = { all: "Semua", draft: "Draft", sent: "Dikirim", partial: "Sebagian", paid: "Lunas", overdue: "Overdue" };
-            return (
-              <button key={s} onClick={() => setStatusFilter(s)}
-                className={`px-3 py-1.5 rounded-lg text-[12px] font-semibold transition-all ${statusFilter === s ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-700"}`}>
-                {labels[s]}
-              </button>
-            );
-          })}
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+          <div className="flex items-center bg-gray-100/80 rounded-xl p-1 w-fit flex-wrap">
+            {(["all", "draft", "sent", "partial", "paid", "overdue"] as const).map((s) => {
+              const labels: Record<string, string> = { all: "Semua", draft: "Draft", sent: "Dikirim", partial: "Sebagian", paid: "Lunas", overdue: "Overdue" };
+              return (
+                <button key={s} onClick={() => setStatusFilter(s)}
+                  className={`px-3 py-1.5 rounded-lg text-[12px] font-semibold transition-all ${statusFilter === s ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-700"}`}>
+                  {labels[s]}
+                </button>
+              );
+            })}
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-36">
+              <DatePicker value={startDate} onChange={setStartDate} placeholder="Mulai Tgl" />
+            </div>
+            <span className="text-gray-400 text-sm">-</span>
+            <div className="w-36">
+              <DatePicker value={endDate} onChange={setEndDate} placeholder="Sampai Tgl" />
+            </div>
+          </div>
         </div>
-        <div className="flex-1 max-w-xs">
+        <div className="w-full">
           <SearchBar value={search} onChange={setSearch} placeholder="Cari nomor, pelanggan, proyek..." />
         </div>
       </div>

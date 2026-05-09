@@ -1,12 +1,12 @@
 import { useMemo } from "react";
 import { AlertTriangle, ArrowUpRight } from "lucide-react";
 import { Card, Button, Badge } from "../ui";
-import { useInvoiceStore } from "../../stores/useInvoiceStore";
+import { useInvoices } from "../../hooks/useInvoices";
 import { formatDate } from "../../lib/utils";
 import { useNavigate } from "react-router-dom";
 
 export default function DueTodayWidget() {
-  const { invoices } = useInvoiceStore();
+  const { data: invoices = [] } = useInvoices();
   const navigate = useNavigate();
   const today = new Date();
   today.setHours(0, 0, 0, 0);
