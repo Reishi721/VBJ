@@ -43,6 +43,19 @@ const terbilang = (angka: number): string => {
   return temp;
 };
 
+const parseLocalYMD = (ymdStr: string | undefined | null): Date => {
+  if (!ymdStr) return new Date();
+  const parts = ymdStr.split("-");
+  if (parts.length === 3) {
+    const y = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10) - 1; // 0-based month
+    const d = parseInt(parts[2], 10);
+    const date = new Date(y, m, d);
+    if (!isNaN(date.getTime())) return date;
+  }
+  return new Date(ymdStr);
+};
+
 const InvoicePrintLayout = forwardRef<HTMLDivElement, Props>(({ invoice }, ref) => {
   const { data: settingsData } = useCompanySettings();
   const { data: banks = [] } = useBanks();
@@ -55,9 +68,9 @@ const InvoicePrintLayout = forwardRef<HTMLDivElement, Props>(({ invoice }, ref) 
   const project = useMemo(() => customer?.projects?.find(p => p.id === invoice.projectId), [customer, invoice.projectId]);
 
   // printDate di-map dari created_at di useInvoices → diubah via input "Tanggal Cetak"
-  const formattedDate = format(new Date(invoice.printDate || invoice.date), "dd MMMM yyyy", { locale: id });
-  const useDateStart = format(new Date(invoice.date), "dd MMMM yyyy", { locale: id });
-  const useDateEnd = format(new Date(invoice.dueDate), "dd MMMM yyyy", { locale: id });
+  const formattedDate = format(parseLocalYMD(invoice.printDate || invoice.date), "dd MMMM yyyy", { locale: id });
+  const useDateStart = format(parseLocalYMD(invoice.date), "dd MMMM yyyy", { locale: id });
+  const useDateEnd = format(parseLocalYMD(invoice.dueDate), "dd MMMM yyyy", { locale: id });
   const defaultBank = banks[0];
 
   const printRoot = useMemo(() => document.getElementById("print-root"), []);

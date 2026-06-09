@@ -14,6 +14,17 @@ export const invoiceKeys = {
 };
 
 // ─── Mappers ──────────────────────────────────────────────────────────────────
+const toLocalYMD = (dateStr: string): string => {
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return dateStr.split("T")[0];
+  const localTime = d.getTime() + 7 * 60 * 60 * 1000;
+  const adjusted = new Date(localTime);
+  const year = adjusted.getUTCFullYear();
+  const month = String(adjusted.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(adjusted.getUTCDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 function mapInvoice(r: any): Invoice {
   // Map joined invoice_line_items (aliased as "line_items") into the items array
   const lineItems = (r.line_items ?? []).map((li: any) => ({
@@ -32,7 +43,7 @@ function mapInvoice(r: any): Invoice {
     summaryDescription: r.summary_description,
     date:               r.date,
     dueDate:            r.due_date,
-    printDate:          r.created_at ? r.created_at.split("T")[0] : r.date,
+    printDate:          r.created_at ? toLocalYMD(r.created_at) : r.date,
     poNumber:           r.po_number,
     billingCycle:       r.billing_cycle,
     customerId:         r.customer_id,
