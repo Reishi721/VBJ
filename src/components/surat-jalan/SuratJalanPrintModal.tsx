@@ -259,7 +259,7 @@ export default function SuratJalanPrintModal({ sj, onClose }: Props) {
             wheel={{ step: 0.08 }}
             pinch={{ step: 5 }}
             centerOnInit
-            onTransformed={(_ref, state) => setPreviewScale(state.scale)}
+            onTransform={(_ref, state) => setPreviewScale(state.scale)}
           >
             {({ zoomIn, zoomOut, resetTransform }) => (
               <>
