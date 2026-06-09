@@ -25,6 +25,7 @@ export default function SuratJalanPrintModal({ sj, onClose }: Props) {
   const [paperWidth, setPaperWidth] = useState(210);
   const [paperHeight, setPaperHeight] = useState(297);
   const [activePreset, setActivePreset] = useState("A4");
+  const [previewScale, setPreviewScale] = useState(0.85);
 
   const applyPreset = (preset: typeof PRESETS[number]) => {
     setPaperWidth(preset.w);
@@ -258,8 +259,9 @@ export default function SuratJalanPrintModal({ sj, onClose }: Props) {
             wheel={{ step: 0.08 }}
             pinch={{ step: 5 }}
             centerOnInit
+            onTransformed={(_ref, state) => setPreviewScale(state.scale)}
           >
-            {({ zoomIn, zoomOut, resetTransform, instance }) => (
+            {({ zoomIn, zoomOut, resetTransform }) => (
               <>
                 {/* Zoom toolbar */}
                 <div className="flex items-center justify-center gap-3 py-2.5 bg-gray-900/70 border-b border-white/5 shrink-0">
@@ -273,7 +275,7 @@ export default function SuratJalanPrintModal({ sj, onClose }: Props) {
                       <ZoomOut className="w-4 h-4" />
                     </button>
                     <span className="text-[12px] font-bold text-white/80 min-w-[48px] text-center select-none">
-                      {Math.round(instance.transformState.scale * 100)}%
+                      {Math.round(previewScale * 100)}%
                     </span>
                     <button
                       onClick={() => zoomIn()}

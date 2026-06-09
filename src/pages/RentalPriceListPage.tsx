@@ -7,9 +7,9 @@ import { useInventory } from "../hooks/useInventory";
 import { useRentalPriceList, useUpsertRentalPrice } from "../hooks/useSuratPerjanjian";
 import { formatCurrency } from "../lib/utils";
 import { toast } from "sonner";
-import { Button, SectionHeader, SearchBar, usePagination, Pagination } from "../components/ui";
+import { SectionHeader, SearchBar, usePagination, Pagination } from "../components/ui";
 import {
-  DollarSign, Save, Tag, Package, Filter,
+  Save, Tag, Package, Filter,
   CheckCircle2, AlertCircle, ChevronDown,
 } from "lucide-react";
 

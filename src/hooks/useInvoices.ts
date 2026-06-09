@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { toast } from "sonner";
 import { supabase } from "../lib/supabase";
-import type { Invoice, Payment, InvoiceStatus } from "../types";
+import type { Invoice, Payment } from "../types";
 
 export const invoiceKeys = {
   all:      ["invoices"] as const,
