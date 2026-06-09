@@ -51,13 +51,25 @@ export function useDraftGuard<T extends Record<string, unknown>>({
   const [savingDraft, setSavingDraft] = useState(false);
   const pendingDiscard = useRef(false);
 
-  // ── Dirty check ──────────────────────────────────────────────────────────────
-  const checkDirty = useCallback((): boolean => {
-    if (customIsDirty) return customIsDirty(form);
+  // Use refs for values that change frequently to keep callbacks stable
+  const formRef = useRef(form);
+  const emptyFormRef = useRef(emptyForm);
+  const customIsDirtyRef = useRef(customIsDirty);
+  formRef.current = form;
+  emptyFormRef.current = emptyForm;
+  customIsDirtyRef.current = customIsDirty;
 
-    return Object.keys(emptyForm).some((key) => {
-      const val   = form[key];
-      const empty = emptyForm[key];
+  // ── Dirty check (stable callback — doesn't change on every keystroke) ──────
+  const checkDirty = useCallback((): boolean => {
+    const currentForm = formRef.current;
+    const currentEmpty = emptyFormRef.current;
+    const currentCustom = customIsDirtyRef.current;
+
+    if (currentCustom) return currentCustom(currentForm);
+
+    return Object.keys(currentEmpty).some((key) => {
+      const val   = currentForm[key];
+      const empty = currentEmpty[key];
 
       if (typeof val === "string" && typeof empty === "string") {
         return val.trim() !== "" && val.trim() !== empty.trim();
@@ -68,7 +80,7 @@ export function useDraftGuard<T extends Record<string, unknown>>({
       // Angka/boolean: berbeda dari default
       return val !== empty && val !== undefined && val !== null && val !== 0 && val !== false;
     });
-  }, [form, emptyForm, customIsDirty]);
+  }, []); // Stable — reads from refs
 
   // Nilai field utama untuk ditampilkan di dialog
   const filledName = primaryField

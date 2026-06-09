@@ -6,6 +6,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { toast } from "sonner";
 import { supabase } from "../lib/supabase";
+import { adjustStock } from "../lib/adjustStock";
 import type { PurchaseOrder, PurchaseOrderItem, POStatus } from "../types";
 
 export const poKeys = {
@@ -232,28 +233,18 @@ export function useReceivePO() {
         }).eq("id", recv.itemId);
         if (itemErr) throw itemErr;
 
-        // Update stok inventory
+        // Update stok inventory (atomic)
         if (recv.inventoryId) {
-          const { data: inv } = await supabase
-            .from("inventory_items").select("stock, code, name").eq("id", recv.inventoryId).single();
-          if (inv) {
-            const newStock = inv.stock + recv.qtyReceived;
-            await supabase.from("inventory_items").update({ stock: newStock }).eq("id", recv.inventoryId);
-            await supabase.from("stock_logs").insert({
-              inventory_id:     recv.inventoryId,
-              inventory_code:   inv.code,
-              inventory_name:   inv.name,
-              change_type:      "po_receive",
-              qty_before:       inv.stock,
-              qty_change:       recv.qtyReceived,
-              qty_after:        newStock,
-              reference_id:     po.id,
-              reference_type:   "purchase_order",
-              reference_number: po.number,
-              notes:            `Penerimaan dari PO ${po.number}`,
-              created_by:       receivedBy,
-            });
-          }
+          await adjustStock({
+            inventoryId:     recv.inventoryId,
+            qtyChange:       recv.qtyReceived,
+            changeType:      "po_receive",
+            referenceId:     po.id,
+            referenceType:   "purchase_order",
+            referenceNumber: po.number,
+            notes:           `Penerimaan dari PO ${po.number}`,
+            createdBy:       receivedBy,
+          });
         }
       }
 
@@ -288,27 +279,18 @@ export function useCancelPO() {
     mutationFn: async (po: PurchaseOrder) => {
       if (po.status === "cancelled") return;
 
-      // Rollback stok untuk item yang sudah diterima
+      // Rollback stok untuk item yang sudah diterima (atomic)
       for (const item of po.items) {
         if (!item.inventoryId || !item.qtyReceived) continue;
-        const { data: inv } = await supabase
-          .from("inventory_items").select("stock, code, name").eq("id", item.inventoryId).single();
-        if (!inv) continue;
 
-        const newStock = Math.max(0, inv.stock - item.qtyReceived);
-        await supabase.from("inventory_items").update({ stock: newStock }).eq("id", item.inventoryId);
-        await supabase.from("stock_logs").insert({
-          inventory_id:     item.inventoryId,
-          inventory_code:   inv.code,
-          inventory_name:   inv.name,
-          change_type:      "adjustment",
-          qty_before:       inv.stock,
-          qty_change:       -item.qtyReceived,
-          qty_after:        newStock,
-          reference_id:     po.id,
-          reference_type:   "purchase_order",
-          reference_number: po.number,
-          notes:            `Rollback pembatalan PO ${po.number}`,
+        await adjustStock({
+          inventoryId:     item.inventoryId,
+          qtyChange:       -item.qtyReceived,
+          changeType:      "adjustment",
+          referenceId:     po.id,
+          referenceType:   "purchase_order",
+          referenceNumber: po.number,
+          notes:           `Rollback pembatalan PO ${po.number}`,
         });
       }
 

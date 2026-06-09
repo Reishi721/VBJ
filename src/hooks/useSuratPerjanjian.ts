@@ -102,12 +102,29 @@ export function useSuratPerjanjian() {
 
 // ─── Generate Number ──────────────────────────────────────────────────────────
 async function generateSPNumber(): Promise<string> {
+  // Atomic number generation via DB RPC (prevents duplicates)
+  try {
+    const { data: rpcNum } = await supabase.rpc("generate_sp_number");
+    if (rpcNum) return rpcNum;
+  } catch {
+    // Fallback: client-side generation if RPC not available
+  }
+
   const year = new Date().getFullYear();
-  const { count } = await supabase
+  const prefix = `SP-${year}-`;
+  
+  const { data: lastSP } = await supabase
     .from("surat_perjanjian")
-    .select("*", { count: "exact", head: true });
-  const seq = ((count ?? 0) + 1).toString().padStart(3, "0");
-  return `SP-${year}-${seq}`;
+    .select("number")
+    .ilike("number", `SP-${year}-%`)
+    .order("number", { ascending: false })
+    .limit(1)
+    .single();
+  
+  const lastNoStr = lastSP?.number?.split('-').pop() ?? "0";
+  const parsedNo = parseInt(lastNoStr);
+  const seq = ((isNaN(parsedNo) ? 0 : parsedNo) + 1).toString().padStart(3, "0");
+  return `${prefix}${seq}`;
 }
 
 // ─── Add ──────────────────────────────────────────────────────────────────────

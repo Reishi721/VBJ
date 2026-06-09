@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { toast } from "sonner";
 import { supabase } from "../lib/supabase";
+import { adjustStock } from "../lib/adjustStock";
 import type { SuratJalan, SuratJalanItem } from "../types";
 
 export const sjKeys = {
@@ -378,60 +379,40 @@ export function useUpdateSJStatus() {
       const becomesDelivered = newStatus === "delivered";
       const becomesCancelled = newStatus === "cancelled";
 
-      // 2. Baru saja delivered → efekkan ke stok
+      // 2. Baru saja delivered → efekkan ke stok (atomic)
       if (becomesDelivered && !wasDelivered) {
         for (const item of sj.items) {
           if (!item.inventoryId) continue;
-          const { data: inv } = await supabase
-            .from("inventory_items").select("stock, code, name").eq("id", item.inventoryId).single();
-          if (!inv) continue;
-
           const isOut     = sj.type === "pengiriman";
           const qtyChange = isOut ? -item.qty : item.qty;
-          const newStock  = Math.max(0, inv.stock + qtyChange);
 
-          await supabase.from("inventory_items").update({ stock: newStock }).eq("id", item.inventoryId);
-          await supabase.from("stock_logs").insert({
-            inventory_id:     item.inventoryId,
-            inventory_code:   inv.code,
-            inventory_name:   inv.name,
-            change_type:      isOut ? "sj_out" : "sj_in",
-            qty_before:       inv.stock,
-            qty_change:       qtyChange,
-            qty_after:        newStock,
-            reference_id:     sj.id,
-            reference_type:   "surat_jalan",
-            reference_number: sj.number,
-            notes:            `${isOut ? "Pengiriman" : "Pengembalian"} via ${sj.number}`,
+          await adjustStock({
+            inventoryId:     item.inventoryId,
+            qtyChange,
+            changeType:      isOut ? "sj_out" : "sj_in",
+            referenceId:     sj.id,
+            referenceType:   "surat_jalan",
+            referenceNumber: sj.number,
+            notes:           `${isOut ? "Pengiriman" : "Pengembalian"} via ${sj.number}`,
           });
         }
       }
 
-      // 3. Dibatalkan tapi sebelumnya sudah delivered → rollback stok
+      // 3. Dibatalkan tapi sebelumnya sudah delivered → rollback stok (atomic)
       if (becomesCancelled && wasDelivered) {
         for (const item of sj.items) {
           if (!item.inventoryId) continue;
-          const { data: inv } = await supabase
-            .from("inventory_items").select("stock, code, name").eq("id", item.inventoryId).single();
-          if (!inv) continue;
-
           const wasOut    = sj.type === "pengiriman";
           const qtyChange = wasOut ? item.qty : -item.qty; // kebalikan dari arah semula
-          const newStock  = Math.max(0, inv.stock + qtyChange);
 
-          await supabase.from("inventory_items").update({ stock: newStock }).eq("id", item.inventoryId);
-          await supabase.from("stock_logs").insert({
-            inventory_id:     item.inventoryId,
-            inventory_code:   inv.code,
-            inventory_name:   inv.name,
-            change_type:      "adjustment",
-            qty_before:       inv.stock,
-            qty_change:       qtyChange,
-            qty_after:        newStock,
-            reference_id:     sj.id,
-            reference_type:   "surat_jalan",
-            reference_number: sj.number,
-            notes:            `Rollback pembatalan SJ ${sj.number}`,
+          await adjustStock({
+            inventoryId:     item.inventoryId,
+            qtyChange,
+            changeType:      "adjustment",
+            referenceId:     sj.id,
+            referenceType:   "surat_jalan",
+            referenceNumber: sj.number,
+            notes:           `Rollback pembatalan SJ ${sj.number}`,
           });
         }
       }

@@ -23,6 +23,7 @@ const emptyForm = {
   summaryDescription: "",
   date: new Date().toISOString().split("T")[0],
   dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+  printDate: new Date().toISOString().split("T")[0],
   poNumber: "", billingCycle: "",
   customerId: "", customerName: "", customerAddress: "",
   projectId: "", projectName: "",
@@ -111,6 +112,7 @@ export default function InvoicePage() {
     setForm({
       number: inv.number,
       summaryDescription: inv.summaryDescription, date: inv.date, dueDate: inv.dueDate,
+      printDate: inv.printDate || inv.date,
       poNumber: inv.poNumber || "", billingCycle: inv.billingCycle || "",
       customerId: inv.customerId, customerName: inv.customerName, customerAddress: inv.customerAddress || "",
       projectId: inv.projectId || "", projectName: inv.projectName || "",
@@ -360,6 +362,11 @@ export default function InvoicePage() {
                 <DatePicker label="Tanggal Invoice" required value={form.date} onChange={val => setForm(f => ({ ...f, date: val }))} />
                 <DatePicker label="Jatuh Tempo" required value={form.dueDate} onChange={val => setForm(f => ({ ...f, dueDate: val }))} />
               </div>
+              <DatePicker
+                label="Tanggal Cetak (Batam, ...)"
+                value={form.printDate ?? ""}
+                onChange={val => setForm(f => ({ ...f, printDate: val }))}
+              />
 
               <div className="pt-2 border-t border-gray-200 mt-1 mb-1"></div>
 

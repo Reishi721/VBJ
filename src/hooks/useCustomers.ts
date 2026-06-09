@@ -81,26 +81,41 @@ export function useCustomers() {
 // ─── Mutations ────────────────────────────────────────────────────────────────
 type CustomerInput = Omit<Customer, "id" | "createdAt" | "projects" | "marketingName"> & {
   projects?: Omit<CustomerProject, "id" | "customerId" | "createdAt">[];
+  marketingName?: string;
 };
 
 /** Konversi string kosong ke null untuk kolom nullable di Supabase */
 const orNull = (v?: string) => (v && v.trim() !== "" ? v.trim() : null);
+
+/** Resolve marketing name from ID if not provided */
+async function resolveMarketingName(marketingId?: string | null): Promise<string | null> {
+  if (!marketingId || marketingId.trim() === "") return null;
+  const { data } = await supabase
+    .from("marketing")
+    .select("name")
+    .eq("id", marketingId)
+    .single();
+  return data?.name ?? null;
+}
 
 export function useAddCustomer() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: CustomerInput) => {
       const { projects = [], ...rest } = input;
+      const marketingName = rest.marketingName || await resolveMarketingName(rest.marketingId);
+
       const { data, error } = await supabase
         .from("customers")
         .insert({
-          name:         rest.name,
-          company:      orNull(rest.company),
-          phone:        rest.phone,
-          email:        orNull(rest.email),
-          address:      rest.address,
-          marketing_id: orNull(rest.marketingId),
-          status:       rest.status,
+          name:           rest.name,
+          company:        orNull(rest.company),
+          phone:          rest.phone,
+          email:          orNull(rest.email),
+          address:        rest.address,
+          marketing_id:   orNull(rest.marketingId),
+          marketing_name: marketingName,
+          status:         rest.status,
         })
         .select()
         .single();
@@ -133,19 +148,26 @@ export function useUpdateCustomer() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, input }: { id: string; input: Partial<CustomerInput> }) => {
-      const { error } = await supabase
-        .from("customers")
-        .update({
-          name:         input.name,
-          company:      orNull(input.company),
-          phone:        input.phone,
-          email:        orNull(input.email),
-          address:      input.address,
-          marketing_id: orNull(input.marketingId),
-          status:       input.status,
-        })
-        .eq("id", id);
-      if (error) throw error;
+      const marketingName = input.marketingId !== undefined
+        ? (input.marketingName || await resolveMarketingName(input.marketingId))
+        : undefined;
+
+      const raw: Record<string, unknown> = {};
+      if (input.name !== undefined)        raw.name = input.name;
+      if (input.company !== undefined)     raw.company = orNull(input.company);
+      if (input.phone !== undefined)       raw.phone = input.phone;
+      if (input.email !== undefined)       raw.email = orNull(input.email);
+      if (input.address !== undefined)     raw.address = input.address;
+      if (input.marketingId !== undefined) {
+        raw.marketing_id   = orNull(input.marketingId);
+        raw.marketing_name = marketingName;
+      }
+      if (input.status !== undefined)      raw.status = input.status;
+
+      if (Object.keys(raw).length > 0) {
+        const { error } = await supabase.from("customers").update(raw).eq("id", id);
+        if (error) throw error;
+      }
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: customerKeys.all }),
   });

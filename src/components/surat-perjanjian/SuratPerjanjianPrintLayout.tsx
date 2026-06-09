@@ -61,78 +61,64 @@ export default function SuratPerjanjianPrintLayout({ doc }: Props) {
     "Demikian surat Perjanjian ini kami buat dengan sebenarnya dan mempunyai kekuatan hukum yang dapat dipatuhi.",
   ];
 
-  /* ─── Shared KOP SURAT component ────────────────────────────── */
+  /* ─── Shared KOP SURAT (identik dengan InvoicePrintLayout) ─── */
   const KopSurat = () => (
     <>
-      {/* Header — same structure as InvoicePrintLayout */}
-      <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 6 }}>
-        <tbody>
-          <tr>
-            {/* Logo */}
-            <td style={{ width: 90, verticalAlign: "middle" }}>
-              {company.logoUrl ? (
-                <img
-                  src={company.logoUrl}
-                  alt="Logo"
-                  style={{ width: 82, height: 82, objectFit: "contain" }}
-                />
-              ) : (
-                <div
-                  style={{
-                    width: 82, height: 82,
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    fontSize: 52, fontWeight: 900, color: "#c0392b",
-                    fontFamily: '"Times New Roman", Times, serif',
-                  }}
-                >
-                  V
-                </div>
-              )}
-            </td>
+      {/* Header row */}
+      <div style={{ display: "flex", alignItems: "stretch", gap: 16, marginBottom: 8, fontFamily: '"Times New Roman", Times, serif' }}>
 
-            {/* Company info */}
-            <td style={{ paddingLeft: 12, verticalAlign: "middle", fontFamily: '"Times New Roman", Times, serif' }}>
-              <div style={{
-                color: "#c0392b",
-                fontWeight: 900,
-                fontSize: 20,
-                letterSpacing: 0.5,
-                fontFamily: '"Rockwell Extra Bold", Rockwell, Georgia, serif',
-                textTransform: "uppercase",
-              }}>
-                {company.name}
-              </div>
-              <div style={{ fontStyle: "italic", fontSize: 11, marginTop: 1 }}>
-                {company.tagline}
-              </div>
-              <div style={{ fontSize: 10, marginTop: 2 }}>{company.addressLine1}</div>
-              {(company.phone || company.fax) && (
-                <div style={{ fontSize: 10 }}>
-                  Telp : {company.phone}{company.fax ? ` / ${company.fax}` : ""}
-                </div>
-              )}
-              <div style={{ fontSize: 10 }}>{company.addressLine2}</div>
-            </td>
+        {/* Logo — 100 × 100 px, sama dengan invoice */}
+        <div style={{ width: 100, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          {company.logoUrl ? (
+            <img src={company.logoUrl} alt="Logo" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+          ) : (
+            <div style={{ fontSize: 60, fontWeight: 900, color: "#c0392b", lineHeight: 1 }}>V</div>
+          )}
+        </div>
 
-            {/* Doc number top-right */}
-            <td style={{ textAlign: "right", verticalAlign: "top", minWidth: 70 }}>
-              <div style={{ fontSize: 9, color: "#555" }}>No.</div>
-              <div style={{
-                fontSize: 14, fontWeight: "bold",
-                borderBottom: "1px solid #000",
-                paddingBottom: 2, minWidth: 60, display: "inline-block",
-              }}>
-                {spNumber}
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+        {/* Company info */}
+        <div style={{ display: "flex", flexDirection: "column", justifyContent: "center" }}>
+          {/* Nama perusahaan — 25 px, Rockwell, MERAH, uppercase (= invoice h1) */}
+          <div style={{
+            fontFamily: '"Rockwell Extra Bold", Rockwell, serif',
+            fontSize: 25,
+            fontWeight: 900,
+            color: "#c0392b",
+            textTransform: "uppercase",
+            letterSpacing: 0.5,
+          }}>
+            {company.name}
+          </div>
 
-      {/* Silver rule — same as invoice */}
+          {/* Tagline — 18 px, bold, uppercase (= invoice h2) */}
+          <div style={{ fontSize: 18, fontWeight: "bold", textTransform: "uppercase" }}>
+            {company.tagline}
+          </div>
+
+          {/* Address lines — sama dengan invoice */}
+          <div style={{ fontSize: 12 }}>{company.addressLine1}</div>
+          <div style={{ fontSize: 12 }}>Telp : {company.phone}{company.fax ? ` / ${company.fax}` : ""}</div>
+          <div style={{ fontSize: 12 }}>{company.addressLine2}</div>
+        </div>
+
+        {/* Doc number — top right */}
+        <div style={{ marginLeft: "auto", textAlign: "right", verticalAlign: "top", minWidth: 70, flexShrink: 0 }}>
+          <div style={{ fontSize: 9, color: "#555" }}>No.</div>
+          <div style={{
+            fontSize: 14, fontWeight: "bold",
+            borderBottom: "1px solid #000",
+            paddingBottom: 2, minWidth: 60, display: "inline-block",
+          }}>
+            {spNumber}
+          </div>
+        </div>
+      </div>
+
+      {/* Silver rule — 3 px, sama dengan invoice */}
       <div style={{ borderTop: "3px solid #C0C0C0", marginBottom: 10 }} />
     </>
   );
+
 
   return (
     <div

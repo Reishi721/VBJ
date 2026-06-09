@@ -191,13 +191,13 @@ export default function FinancePage() {
       {/* ── Financial Summary Cards ────────────────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[
-          { label: "Total Ditagihkan", value: stats.totalInvoiced, icon: BanknoteIcon, color: "blue" },
-          { label: "Total Diterima",   value: stats.totalPaid,     icon: CheckCircle2, color: "emerald" },
-          { label: "Sisa Piutang",     value: stats.totalReceivables, icon: Clock,    color: "amber" },
+          { label: "Total Ditagihkan", value: stats.totalInvoiced, icon: BanknoteIcon, iconBg: "bg-blue-50",    iconColor: "text-blue-600" },
+          { label: "Total Diterima",   value: stats.totalPaid,     icon: CheckCircle2, iconBg: "bg-emerald-50", iconColor: "text-emerald-600" },
+          { label: "Sisa Piutang",     value: stats.totalReceivables, icon: Clock,     iconBg: "bg-amber-50",   iconColor: "text-amber-600" },
         ].map(card => (
           <div key={card.label} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex items-center gap-4">
-            <div className={`w-12 h-12 rounded-xl bg-${card.color}-50 flex items-center justify-center shrink-0`}>
-              <card.icon className={`w-6 h-6 text-${card.color}-600`} />
+            <div className={`w-12 h-12 rounded-xl ${card.iconBg} flex items-center justify-center shrink-0`}>
+              <card.icon className={`w-6 h-6 ${card.iconColor}`} />
             </div>
             <div>
               <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">{card.label}</p>

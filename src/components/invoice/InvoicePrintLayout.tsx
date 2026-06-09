@@ -14,6 +14,9 @@ const formatRupiahPrint = (val: number) =>
   new Intl.NumberFormat("id-ID", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val);
 
 const terbilang = (angka: number): string => {
+  if (angka < 0) return "minus" + terbilang(-angka);
+  angka = Math.floor(angka);
+  if (angka === 0) return " nol";
   const bilangan = [
     "", "satu", "dua", "tiga", "empat", "lima", "enam", "tujuh", "delapan", "sembilan", "sepuluh", "sebelas"
   ];
@@ -44,14 +47,15 @@ const InvoicePrintLayout = forwardRef<HTMLDivElement, Props>(({ invoice }, ref) 
   const { data: settingsData } = useCompanySettings();
   const { data: banks = [] } = useBanks();
   const { data: customers = [] } = useCustomers();
-  
+
   const company = settingsData?.company || { name: "", tagline: "", addressLine1: "", addressLine2: "", phone: "", fax: "", logoUrl: "" };
   const invSettings = settingsData?.invoice || { remarks: "", managerName: "", managerTitle: "" };
 
   const customer = useMemo(() => customers.find(c => c.id === invoice.customerId), [customers, invoice.customerId]);
   const project = useMemo(() => customer?.projects?.find(p => p.id === invoice.projectId), [customer, invoice.projectId]);
 
-  const formattedDate = format(new Date(invoice.date), "dd MMMM yyyy", { locale: id });
+  // printDate di-map dari created_at di useInvoices → diubah via input "Tanggal Cetak"
+  const formattedDate = format(new Date(invoice.printDate || invoice.date), "dd MMMM yyyy", { locale: id });
   const useDateStart = format(new Date(invoice.date), "dd MMMM yyyy", { locale: id });
   const useDateEnd = format(new Date(invoice.dueDate), "dd MMMM yyyy", { locale: id });
   const defaultBank = banks[0];
@@ -61,7 +65,7 @@ const InvoicePrintLayout = forwardRef<HTMLDivElement, Props>(({ invoice }, ref) 
   if (!printRoot) return null;
 
   return createPortal(
-    <div ref={ref} style={{ fontFamily: "Arial, sans-serif" }} className="hidden print:block w-full bg-white text-black text-[12px] mt-1 leading-tight p-8">
+    <div ref={ref} style={{ fontFamily: "Arial, sans-serif" }} className="hidden print:block w-full bg-white text-black text-[12px] mt-1 leading-tight pl-4 pr-8 pt-1 pb-8">
       {/* ─── HEADER ──────────────────────────────────────────────────────── */}
       <div style={{ fontFamily: '"Times New Roman", Times, serif' }} className="flex items-stretch gap-4 mb-2">
         {/* Logo box — stretches to match kop surat height */}

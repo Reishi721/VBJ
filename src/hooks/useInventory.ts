@@ -6,6 +6,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { toast } from "sonner";
 import { supabase } from "../lib/supabase";
+import { adjustStock } from "../lib/adjustStock";
 import type { InventoryItem, InventoryCategory } from "../types";
 
 export const inventoryKeys = {
@@ -159,23 +160,6 @@ export function useAdjustStock() {
     mutationFn: async ({
       itemId, qty, type, reason, userId,
     }: { itemId: string; qty: number; type: "in" | "out" | "adjustment"; reason: string; userId?: string }) => {
-      // Get current item data (stock + code + name for log)
-      const { data: item, error: fetchErr } = await supabase
-        .from("inventory_items").select("stock, code, name").eq("id", itemId).single();
-      if (fetchErr) throw fetchErr;
-
-      const newStock = type === "in"
-        ? item.stock + qty
-        : type === "out"
-        ? item.stock - qty
-        : qty;
-
-      if (newStock < 0) throw new Error("Stok tidak boleh negatif");
-
-      const { error: updateErr } = await supabase
-        .from("inventory_items").update({ stock: newStock }).eq("id", itemId);
-      if (updateErr) throw updateErr;
-
       // Map hook type to DB change_type
       const changeTypeMap: Record<string, string> = {
         in: "manual_in",
@@ -183,20 +167,25 @@ export function useAdjustStock() {
         adjustment: "adjustment",
       };
 
-      // Log the adjustment — column names match supabase_schema.sql stock_logs table
-      const { error: logErr } = await supabase.from("stock_logs").insert({
-        inventory_id:    itemId,
-        inventory_code:  item.code,
-        inventory_name:  item.name,
-        change_type:     changeTypeMap[type] ?? "adjustment",
-        qty_before:      item.stock,
-        qty_change:      type === "out" ? -qty : qty,
-        qty_after:       newStock,
-        reference_type:  "manual",
+      let qtyChange: number;
+      if (type === "adjustment") {
+        // Stock opname: qty is the new absolute stock value, need delta
+        const { data: item, error: fetchErr } = await supabase
+          .from("inventory_items").select("stock").eq("id", itemId).single();
+        if (fetchErr) throw fetchErr;
+        qtyChange = qty - item.stock;
+      } else {
+        qtyChange = type === "in" ? qty : -qty;
+      }
+
+      await adjustStock({
+        inventoryId:     itemId,
+        qtyChange,
+        changeType:      changeTypeMap[type] ?? "adjustment",
+        referenceType:   "manual",
         notes:           reason,
-        created_by:      userId,
+        createdBy:       userId,
       });
-      if (logErr) throw logErr;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: inventoryKeys.items });

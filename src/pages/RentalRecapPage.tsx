@@ -630,68 +630,70 @@ export default function RentalRecapPage() {
           <Button leftIcon={Plus} onClick={() => setShowCreate(true)}>Buat Rekapan Pertama</Button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {pagedRecaps.map((recap) => {
-            const sjCount = getSJCount(recap);
-            const colCount = recap.columns.length;
-            return (
-              <div key={recap.id}
-                className="group bg-white rounded-2xl border border-gray-100 p-5 hover:shadow-md hover:border-blue-100 transition-all duration-200 cursor-pointer"
-                onClick={() => setViewRecap(recap)}>
-                <div className="flex items-start justify-between mb-3">
-                  <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center text-white font-bold text-sm shrink-0">
-                    {recap.customerName[0]}
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {pagedRecaps.map((recap) => {
+              const sjCount = getSJCount(recap);
+              const colCount = recap.columns.length;
+              return (
+                <div key={recap.id}
+                  className="group bg-white rounded-2xl border border-gray-100 p-5 hover:shadow-md hover:border-blue-100 transition-all duration-200 cursor-pointer"
+                  onClick={() => setViewRecap(recap)}>
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center text-white font-bold text-sm shrink-0">
+                      {recap.customerName[0]}
+                    </div>
+                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={(e) => e.stopPropagation()}>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setManageCols(recap); }}
+                        className="p-1.5 rounded-lg hover:bg-blue-50 text-gray-400 hover:text-blue-600 transition-colors"
+                        title="Kelola Kolom">
+                        <Settings2 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setDelId(recap.id); }}
+                        className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"
+                        title="Hapus">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={(e) => e.stopPropagation()}>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setManageCols(recap); }}
-                      className="p-1.5 rounded-lg hover:bg-blue-50 text-gray-400 hover:text-blue-600 transition-colors"
-                      title="Kelola Kolom">
-                      <Settings2 className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setDelId(recap.id); }}
-                      className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"
-                      title="Hapus">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+
+                  <p className="text-[14px] font-bold text-gray-900 truncate">{recap.customerName}</p>
+                  {recap.projectName && (
+                    <p className="text-[12px] text-gray-400 truncate mt-0.5">{recap.projectName}</p>
+                  )}
+
+                  <div className="flex gap-3 mt-4">
+                    <div className="flex-1 bg-blue-50 rounded-xl p-2.5 text-center">
+                      <p className="text-[18px] font-bold text-blue-700">{sjCount}</p>
+                      <p className="text-[10px] text-blue-500 font-medium">Surat Jalan</p>
+                    </div>
+                    <div className="flex-1 bg-purple-50 rounded-xl p-2.5 text-center">
+                      <p className="text-[18px] font-bold text-purple-700">{colCount}</p>
+                      <p className="text-[10px] text-purple-500 font-medium">Kolom Item</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 flex items-center gap-1.5 text-[11px] text-blue-600 font-semibold opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Eye className="w-3.5 h-3.5" />
+                    Lihat Rekapan
                   </div>
                 </div>
-
-                <p className="text-[14px] font-bold text-gray-900 truncate">{recap.customerName}</p>
-                {recap.projectName && (
-                  <p className="text-[12px] text-gray-400 truncate mt-0.5">{recap.projectName}</p>
-                )}
-
-                <div className="flex gap-3 mt-4">
-                  <div className="flex-1 bg-blue-50 rounded-xl p-2.5 text-center">
-                    <p className="text-[18px] font-bold text-blue-700">{sjCount}</p>
-                    <p className="text-[10px] text-blue-500 font-medium">Surat Jalan</p>
-                  </div>
-                  <div className="flex-1 bg-purple-50 rounded-xl p-2.5 text-center">
-                    <p className="text-[18px] font-bold text-purple-700">{colCount}</p>
-                    <p className="text-[10px] text-purple-500 font-medium">Kolom Item</p>
-                  </div>
-                </div>
-
-                <div className="mt-3 flex items-center gap-1.5 text-[11px] text-blue-600 font-semibold opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Eye className="w-3.5 h-3.5" />
-                  Lihat Rekapan
-                </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
+          <Pagination
+            page={page}
+            pageCount={pageCount}
+            pageSize={pageSize}
+            total={filtered.length}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+            pageSizeOptions={[6, 12, 24, 48]}
+          />
         </div>
-        <Pagination
-          page={page}
-          pageCount={pageCount}
-          pageSize={pageSize}
-          total={filtered.length}
-          onPageChange={setPage}
-          onPageSizeChange={setPageSize}
-          pageSizeOptions={[6, 12, 24, 48]}
-        />
       )}
 
       {/* Modals — hanya mount saat dibutuhkan */}

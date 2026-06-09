@@ -31,34 +31,34 @@ import SuratPerjanjianPrintModal from "../components/surat-perjanjian/SuratPerja
 import PihakPertamaModal from "../components/surat-perjanjian/PihakPertamaModal";
 
 const STATUS_LABEL: Record<string, string> = {
-  draft:     "Draft",
-  active:    "Aktif",
+  draft: "Draft",
+  active: "Aktif",
   completed: "Selesai",
   cancelled: "Batal",
 };
 
 const STATUS_BADGE: Record<string, "gray" | "emerald" | "blue" | "red"> = {
-  draft:     "gray",
-  active:    "emerald",
+  draft: "gray",
+  active: "emerald",
   completed: "blue",
   cancelled: "red",
 };
 
 export default function SuratPerjanjianPage() {
-  const { data: spList = [],  isLoading } = useSuratPerjanjian();
-  const { data: customers = []          } = useCustomers();
-  const { data: pihakList  = []         } = usePihakPertama();
-  const { mutate: addSP,    isPending: adding   } = useAddSuratPerjanjian();
+  const { data: spList = [], isLoading } = useSuratPerjanjian();
+  const { data: customers = [] } = useCustomers();
+  const { data: pihakList = [] } = usePihakPertama();
+  const { mutate: addSP, isPending: adding } = useAddSuratPerjanjian();
   const { mutate: updateSP, isPending: updating } = useUpdateSuratPerjanjian();
-  const { mutate: deleteSP                       } = useDeleteSuratPerjanjian();
+  const { mutate: deleteSP } = useDeleteSuratPerjanjian();
 
-  const [search,       setSearch]       = useState("");
+  const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
-  const [showForm,     setShowForm]     = useState(false);
-  const [editing,      setEditing]      = useState<SuratPerjanjian | null>(null);
-  const [printing,     setPrinting]     = useState<SuratPerjanjian | null>(null);
-  const [delId,        setDelId]        = useState<string | null>(null);
-  const [showPihak1,   setShowPihak1]   = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<SuratPerjanjian | null>(null);
+  const [printing, setPrinting] = useState<SuratPerjanjian | null>(null);
+  const [delId, setDelId] = useState<string | null>(null);
+  const [showPihak1, setShowPihak1] = useState(false);
 
   // ─── Filters ─────────────────────────────────────────────────
   const filtered = useMemo(() => {
@@ -73,8 +73,8 @@ export default function SuratPerjanjianPage() {
   }, [spList, search, filterStatus]);
 
   // ─── Stats ────────────────────────────────────────────────────
-  const totalActive    = spList.filter(s => s.status === "active").length;
-  const totalValue     = spList.filter(s => s.status === "active").reduce((sum, s) => sum + s.total, 0);
+  const totalActive = spList.filter(s => s.status === "active").length;
+  const totalValue = spList.filter(s => s.status === "active").reduce((sum, s) => sum + s.total, 0);
   const totalCompleted = spList.filter(s => s.status === "completed").length;
 
   // ─── Handlers ─────────────────────────────────────────────────
@@ -243,9 +243,9 @@ export default function SuratPerjanjianPage() {
       />
 
       <StatsRow stats={[
-        { label: "Total Dokumen",  value: spList.length,   icon: FileText,   iconBg: "bg-indigo-50", iconColor: "text-indigo-600" },
-        { label: "Aktif",          value: totalActive,      icon: Users,      iconBg: "bg-emerald-50", iconColor: "text-emerald-600" },
-        { label: "Selesai",        value: totalCompleted,   icon: TrendingUp, iconBg: "bg-blue-50",    iconColor: "text-blue-600" },
+        { label: "Total Dokumen", value: spList.length, icon: FileText, iconBg: "bg-indigo-50", iconColor: "text-indigo-600" },
+        { label: "Aktif", value: totalActive, icon: Users, iconBg: "bg-emerald-50", iconColor: "text-emerald-600" },
+        { label: "Selesai", value: totalCompleted, icon: TrendingUp, iconBg: "bg-blue-50", iconColor: "text-blue-600" },
         { label: "Total Nilai Aktif", value: formatCurrency(totalValue), icon: DollarSign, iconBg: "bg-amber-50", iconColor: "text-amber-600" },
       ]} />
 
@@ -262,9 +262,9 @@ export default function SuratPerjanjianPage() {
           value={filterStatus}
           onChange={setFilterStatus}
           options={[
-            { value: "all",       label: "Semua Status" },
-            { value: "draft",     label: "Draft" },
-            { value: "active",    label: "Aktif" },
+            { value: "all", label: "Semua Status" },
+            { value: "draft", label: "Draft" },
+            { value: "active", label: "Aktif" },
             { value: "completed", label: "Selesai" },
             { value: "cancelled", label: "Batal" },
           ]}
@@ -293,6 +293,7 @@ export default function SuratPerjanjianPage() {
           customers={customers}
           pihakPertamaList={pihakPertamaOptions}
           isLoading={adding || updating}
+
         />
       )}
 

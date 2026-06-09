@@ -15,12 +15,24 @@ export const invoiceKeys = {
 
 // ─── Mappers ──────────────────────────────────────────────────────────────────
 function mapInvoice(r: any): Invoice {
+  // Map joined invoice_line_items (aliased as "line_items") into the items array
+  const lineItems = (r.line_items ?? []).map((li: any) => ({
+    description:   li.description,
+    inventoryCode: li.inventory_code,
+    qty:           li.qty,
+    unit:          li.unit,
+    unitPrice:     li.unit_price,
+    rentalDays:    li.rental_days,
+    subtotal:      li.subtotal,
+  }));
+
   return {
     id:                 r.id,
     number:             r.number,
     summaryDescription: r.summary_description,
     date:               r.date,
     dueDate:            r.due_date,
+    printDate:          r.created_at ? r.created_at.split("T")[0] : r.date,
     poNumber:           r.po_number,
     billingCycle:       r.billing_cycle,
     customerId:         r.customer_id,
@@ -30,7 +42,7 @@ function mapInvoice(r: any): Invoice {
     projectName:        r.project_name,
     upName:             r.up_name,
     upPhone:            r.up_phone,
-    items:              r.items ?? [],
+    items:              lineItems,
     subtotal:           r.subtotal ?? 0,
     transportFee:       r.transport_fee,
     depositFee:         r.deposit_fee,
@@ -71,7 +83,7 @@ export function useInvoices() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("invoices")
-        .select("*")
+        .select("*, line_items:invoice_line_items(*)")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []).map(mapInvoice);
@@ -82,6 +94,8 @@ export function useInvoices() {
     const ch = supabase
       .channel(`realtime:invoices_${Math.random().toString(36).slice(2)}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "invoices" },
+        () => qc.invalidateQueries({ queryKey: invoiceKeys.all }))
+      .on("postgres_changes", { event: "*", schema: "public", table: "invoice_line_items" },
         () => qc.invalidateQueries({ queryKey: invoiceKeys.all }))
       .subscribe();
     return () => { supabase.removeChannel(ch); };
@@ -131,26 +145,34 @@ export function useAddInvoice() {
     mutationFn: async (input: InvoiceInput) => {
       let numberToUse = input.number;
       if (!numberToUse || numberToUse.trim() === "") {
-        // Custom generation format: Inv-00001
-        const { data: lastInv } = await supabase
-          .from("invoices")
-          .select("number")
-          .ilike("number", `Inv-%`)
-          .order("number", { ascending: false })
-          .limit(1)
-          .single();
-        
-        const lastNoStr = lastInv?.number?.split('-').pop() ?? "0";
-        const parsedNo = parseInt(lastNoStr);
-        const nextNo = String((isNaN(parsedNo) ? 0 : parsedNo) + 1).padStart(5, "0");
-        numberToUse = `Inv-${nextNo}`;
+        // Atomic number generation via DB RPC (prevents duplicates)
+        try {
+          const { data: rpcNum } = await supabase.rpc("generate_invoice_number");
+          if (rpcNum) numberToUse = rpcNum;
+        } catch {
+          // Fallback: client-side generation if RPC not available
+        }
+        if (!numberToUse || numberToUse.trim() === "") {
+          const { data: lastInv } = await supabase
+            .from("invoices").select("number")
+            .ilike("number", `Inv-%`)
+            .order("number", { ascending: false })
+            .limit(1).single();
+          const lastNoStr = lastInv?.number?.split('-').pop() ?? "0";
+          const parsedNo = parseInt(lastNoStr);
+          numberToUse = `Inv-${String((isNaN(parsedNo) ? 0 : parsedNo) + 1).padStart(5, "0")}`;
+        }
       }
 
-      const { error } = await supabase.from("invoices").insert({
+      const { data, error } = await supabase.from("invoices").insert({
         number: numberToUse,
         summary_description: orNull(input.summaryDescription),
         date:                input.date,
         due_date:            input.dueDate,
+        // Gunakan printDate sebagai created_at (tanggal cetak "Batam, ...")
+        created_at:          input.printDate
+          ? `${input.printDate}T00:00:00+07:00`
+          : new Date().toISOString(),
         po_number:           orNull(input.poNumber),
         billing_cycle:       orNull(input.billingCycle),
         customer_id:         input.customerId,
@@ -171,8 +193,25 @@ export function useAddInvoice() {
         remaining_amount:    input.total,
         status:              input.status,
         notes:               orNull(input.notes),
-      });
+      }).select().single();
       if (error) throw error;
+
+      // Insert line items into invoice_line_items table
+      if (input.items && input.items.length > 0) {
+        const { error: itemErr } = await supabase.from("invoice_line_items").insert(
+          input.items.map(i => ({
+            invoice_id:     data.id,
+            description:    i.description,
+            inventory_code: i.inventoryCode || null,
+            qty:            i.qty,
+            unit:           i.unit,
+            unit_price:     i.unitPrice,
+            rental_days:    i.rentalDays || null,
+            subtotal:       i.subtotal,
+          }))
+        );
+        if (itemErr) throw itemErr;
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: invoiceKeys.all });
@@ -186,36 +225,61 @@ export function useUpdateInvoice() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, input }: { id: string; input: Partial<Invoice> }) => {
-      const updatePayload: any = {
-        summary_description: orNull(input.summaryDescription),
-        date:                input.date,
-        due_date:            input.dueDate,
-        po_number:           orNull(input.poNumber),
-        billing_cycle:       orNull(input.billingCycle),
-        customer_id:         input.customerId,
-        customer_name:       input.customerName,
-        customer_address:    input.customerAddress,
-        project_id:          input.projectId || null,
-        project_name:        orNull(input.projectName),
-        up_name:             orNull(input.upName),
-        up_phone:            orNull(input.upPhone),
-        subtotal:            input.subtotal,
-        transport_fee:       input.transportFee,
-        deposit_fee:         input.depositFee,
-        discount:            input.discount,
-        tax:                 input.tax,
-        tax_amount:          input.taxAmount,
-        total:               input.total,
-        remaining_amount:    input.remainingAmount,
-        status:              input.status,
-        notes:               orNull(input.notes),
-      };
-      if (input.number) {
-        updatePayload.number = input.number;
+      // Build payload — only include fields that were explicitly provided
+      // to avoid overwriting existing data with null/undefined
+      const raw: Record<string, unknown> = {};
+      if (input.summaryDescription !== undefined) raw.summary_description = orNull(input.summaryDescription);
+      if (input.date !== undefined)               raw.date = input.date;
+      if (input.dueDate !== undefined)             raw.due_date = input.dueDate;
+      // printDate mengubah created_at (tanggal cetak "Batam, ...")
+      if (input.printDate !== undefined)           raw.created_at = input.printDate
+        ? `${input.printDate}T00:00:00+07:00`
+        : undefined;
+      if (input.poNumber !== undefined)            raw.po_number = orNull(input.poNumber);
+      if (input.billingCycle !== undefined)         raw.billing_cycle = orNull(input.billingCycle);
+      if (input.customerId !== undefined)           raw.customer_id = input.customerId;
+      if (input.customerName !== undefined)         raw.customer_name = input.customerName;
+      if (input.customerAddress !== undefined)      raw.customer_address = input.customerAddress;
+      if (input.projectId !== undefined)            raw.project_id = input.projectId || null;
+      if (input.projectName !== undefined)          raw.project_name = orNull(input.projectName);
+      if (input.upName !== undefined)               raw.up_name = orNull(input.upName);
+      if (input.upPhone !== undefined)              raw.up_phone = orNull(input.upPhone);
+      if (input.subtotal !== undefined)             raw.subtotal = input.subtotal;
+      if (input.transportFee !== undefined)         raw.transport_fee = input.transportFee;
+      if (input.depositFee !== undefined)           raw.deposit_fee = input.depositFee;
+      if (input.discount !== undefined)             raw.discount = input.discount;
+      if (input.tax !== undefined)                  raw.tax = input.tax;
+      if (input.taxAmount !== undefined)            raw.tax_amount = input.taxAmount;
+      if (input.total !== undefined)                raw.total = input.total;
+      if (input.remainingAmount !== undefined)      raw.remaining_amount = input.remainingAmount;
+      if (input.status !== undefined)               raw.status = input.status;
+      if (input.notes !== undefined)                raw.notes = orNull(input.notes);
+      if (input.number)                             raw.number = input.number;
+
+      if (Object.keys(raw).length > 0) {
+        const { error } = await supabase.from("invoices").update(raw).eq("id", id);
+        if (error) throw error;
       }
 
-      const { error } = await supabase.from("invoices").update(updatePayload).eq("id", id);
-      if (error) throw error;
+      // Replace line items if provided
+      if (input.items !== undefined) {
+        await supabase.from("invoice_line_items").delete().eq("invoice_id", id);
+        if (input.items.length > 0) {
+          const { error: itemErr } = await supabase.from("invoice_line_items").insert(
+            input.items.map(i => ({
+              invoice_id:     id,
+              description:    i.description,
+              inventory_code: i.inventoryCode || null,
+              qty:            i.qty,
+              unit:           i.unit,
+              unit_price:     i.unitPrice,
+              rental_days:    i.rentalDays || null,
+              subtotal:       i.subtotal,
+            }))
+          );
+          if (itemErr) throw itemErr;
+        }
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: invoiceKeys.all });

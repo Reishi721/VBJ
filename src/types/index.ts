@@ -161,6 +161,7 @@ export interface Invoice {
   summaryDescription: string; // Deskripsi untuk invoice ringkasan (misal: "Sewa Scaffolding Periode April")
   date: string;
   dueDate: string;
+  printDate?: string;        // Tanggal cetak "Batam, ..." (terpisah dari tanggal invoice)
   poNumber?: string;
   billingCycle?: string;     // Tagihan Ke
   customerId: string;

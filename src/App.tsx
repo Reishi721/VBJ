@@ -23,6 +23,8 @@ const ReceivablesReportPage = lazy(() => import('./pages/ReceivablesReportPage')
 const RitaseRecapPage = lazy(() => import('./pages/RitaseRecapPage'))
 const SuratPerjanjianPage = lazy(() => import('./pages/SuratPerjanjianPage'))
 const RentalPriceListPage = lazy(() => import('./pages/RentalPriceListPage'))
+const FinancePage        = lazy(() => import('./pages/FinancePage'))
+const PurchaseOrderPage  = lazy(() => import('./pages/PurchaseOrderPage'))
 
 // ─── Loading fallback ─────────────────────────────────────────────────────────
 function PageLoader() {
@@ -35,9 +37,6 @@ function PageLoader() {
     </div>
   )
 }
-
-const FinancePage        = lazy(() => import('./pages/FinancePage'))
-const PurchaseOrderPage  = lazy(() => import('./pages/PurchaseOrderPage'))
 
 function App() {
   return (
@@ -87,8 +86,8 @@ function App() {
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        <Toaster position="top-right" richColors closeButton duration={4000} />
       </BrowserRouter>
-      <Toaster position="top-right" richColors closeButton duration={4000} />
     </AuthProvider>
   )
 }

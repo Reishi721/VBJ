@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import { createPortal } from "react-dom";
-import { X, Printer, Maximize2, RotateCcw, FileText } from "lucide-react";
+import { X, Printer, Maximize2, RotateCcw, FileText, ZoomIn, ZoomOut } from "lucide-react";
+import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import type { SuratJalan } from "../../types";
 import SuratJalanPrintLayout from "./SuratJalanPrintLayout";
 
@@ -67,7 +68,17 @@ export default function SuratJalanPrintModal({ sj, onClose }: Props) {
         #print-root { display: none !important; }
       }
     `;
+
     window.print();
+
+    // CRITICAL: remove the injected <style> tag after printing so it
+    // doesn't bleed into other print actions (e.g. Invoice print).
+    const cleanup = () => {
+      const stale = document.getElementById("sj-print-style");
+      if (stale) stale.remove();
+      window.removeEventListener("afterprint", cleanup);
+    };
+    window.addEventListener("afterprint", cleanup);
   };
 
   const typeLabel = sj.type === "pengiriman" ? "Pengiriman" : "Pengembalian";
@@ -238,24 +249,76 @@ export default function SuratJalanPrintModal({ sj, onClose }: Props) {
           </div>
         </div>
 
-        {/* ── Right: Preview Area ───────────────────────────── */}
-        <div className="flex-1 overflow-auto bg-gray-800/95 p-8 flex items-start justify-center z-10">
-          <div
-            className="bg-white shadow-2xl shadow-black/30 rounded-sm"
-            style={{
-              transform: "scale(0.85)",
-              transformOrigin: "top center",
-            }}
+        {/* ── Right: Preview Area ─────────────────────── */}
+        <div className="flex-1 flex flex-col bg-gray-800/95 z-10 overflow-hidden">
+          <TransformWrapper
+            initialScale={0.85}
+            minScale={0.2}
+            maxScale={3}
+            wheel={{ step: 0.08 }}
+            pinch={{ step: 5 }}
+            centerOnInit
           >
-            <div id="sj-print-container">
-              <SuratJalanPrintLayout
-                ref={printRef}
-                sj={sj}
-                paperWidth={paperWidth}
-                paperHeight={paperHeight}
-              />
-            </div>
-          </div>
+            {({ zoomIn, zoomOut, resetTransform, instance }) => (
+              <>
+                {/* Zoom toolbar */}
+                <div className="flex items-center justify-center gap-3 py-2.5 bg-gray-900/70 border-b border-white/5 shrink-0">
+                  <span className="text-[11px] text-white/40 font-medium">PREVIEW</span>
+                  <div className="flex items-center gap-1 bg-gray-700/80 rounded-xl px-1.5 py-1">
+                    <button
+                      onClick={() => zoomOut()}
+                      className="p-1.5 rounded-lg hover:bg-white/10 text-white/70 hover:text-white transition-colors"
+                      title="Zoom Out (scroll juga bisa)"
+                    >
+                      <ZoomOut className="w-4 h-4" />
+                    </button>
+                    <span className="text-[12px] font-bold text-white/80 min-w-[48px] text-center select-none">
+                      {Math.round(instance.transformState.scale * 100)}%
+                    </span>
+                    <button
+                      onClick={() => zoomIn()}
+                      className="p-1.5 rounded-lg hover:bg-white/10 text-white/70 hover:text-white transition-colors"
+                      title="Zoom In"
+                    >
+                      <ZoomIn className="w-4 h-4" />
+                    </button>
+                    <div className="w-px h-4 bg-white/10 mx-0.5" />
+                    <button
+                      onClick={() => resetTransform()}
+                      className="p-1.5 rounded-lg hover:bg-white/10 text-white/50 hover:text-white transition-colors"
+                      title="Reset Zoom"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <span className="text-[10px] text-white/25">Scroll untuk zoom • Drag untuk geser</span>
+                </div>
+
+                {/* Pannable canvas */}
+                <TransformComponent
+                  wrapperStyle={{ flex: 1, width: "100%", overflow: "hidden" }}
+                  contentStyle={{
+                    display: "flex",
+                    alignItems: "flex-start",
+                    justifyContent: "center",
+                    padding: "40px",
+                    minHeight: "100%",
+                  }}
+                >
+                  <div className="bg-white shadow-2xl shadow-black/40 rounded-sm">
+                    <div id="sj-print-container">
+                      <SuratJalanPrintLayout
+                        ref={printRef}
+                        sj={sj}
+                        paperWidth={paperWidth}
+                        paperHeight={paperHeight}
+                      />
+                    </div>
+                  </div>
+                </TransformComponent>
+              </>
+            )}
+          </TransformWrapper>
         </div>
       </div>
     </div>,
